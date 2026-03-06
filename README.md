@@ -20,11 +20,13 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 ## Features
 
 - Browse directories with breadcrumb navigation
-- Upload single or multiple files
+- Upload single or multiple files with progress bar
 - Download individual files or entire folders as zip
 - Create new folders
 - Rename files and folders inline
 - Animated UI with loading states
+- Streaming uploads and zip downloads for large files
+- Request logging on all endpoints
 
 ## API
 
@@ -37,14 +39,30 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 | `POST` | `/api/create-folder?path=/&name=new` | Create a new folder |
 | `POST` | `/api/rename?path=/old&new_name=new` | Rename a file or folder |
 
+## Testing
+
+```bash
+python3 -m pytest test_main.py -v
+```
+
+26 tests covering all endpoints, path traversal protection, filename sanitization, and large file handling.
+
+## Deployment
+
+A `render.yaml` is included for one-click deployment to [Render](https://render.com). Storage is ephemeral on the free tier.
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs tests on every push and PR.
+
 ## Project Structure
 
 ```
 main.py            # FastAPI backend (all endpoints)
+test_main.py       # pytest test suite (26 tests)
 static/
   index.html       # HTML shell + inline CSS
   app.js           # Vanilla JS frontend
 sandbox/           # Default root directory for development
+render.yaml        # Render deployment config
 requirements.txt   # Python dependencies
 ```
 
