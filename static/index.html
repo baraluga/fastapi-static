@@ -6,31 +6,169 @@
   <title>File Browser</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #1a1a1a; }
-    .shell { max-width: 720px; margin: 48px auto; padding: 0 16px; }
-    h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #007acd; }
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.1); overflow: hidden; }
-    nav { padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 13px; color: #666; display: flex; justify-content: space-between; align-items: center; }
-    nav a { color: #007acd; text-decoration: none; }
-    nav a:hover { text-decoration: underline; }
-    nav span { margin: 0 4px; color: #ccc; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e8edf3 100%);
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+    .shell { max-width: 720px; margin: 0 auto; padding: 48px 16px; }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: #007acd;
+      letter-spacing: -0.3px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
+      overflow: hidden;
+      transition: box-shadow 0.3s ease;
+    }
+    .card:hover {
+      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 12px 32px rgba(0,0,0,.09);
+    }
+
+    /* Nav / Breadcrumbs */
+    nav {
+      padding: 12px 16px;
+      border-bottom: 1px solid #eef1f5;
+      font-size: 13px;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: #fafbfc;
+    }
+    .breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }
+    .breadcrumbs a {
+      color: #007acd;
+      text-decoration: none;
+      padding: 2px 6px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .breadcrumbs a:hover { background: rgba(0,122,205,.08); }
+    .breadcrumbs a:last-child { font-weight: 600; color: #005a9c; }
+    .breadcrumbs .sep { margin: 0 1px; color: #c0c8d0; font-size: 11px; user-select: none; }
+    .nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+    /* Buttons */
+    .btn {
+      background: #007acd;
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 0;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #005a9c; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,122,205,.3); }
+    .btn:active { transform: translateY(0); box-shadow: none; }
+    .btn-secondary {
+      background: transparent;
+      color: #007acd;
+      border: 1px solid #d8dfe6;
+    }
+    .btn-secondary:hover { background: rgba(0,122,205,.06); border-color: #007acd; box-shadow: 0 2px 8px rgba(0,122,205,.12); }
+
+    /* File list */
     ul { list-style: none; }
-    li { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; display: flex; align-items: center; gap: 8px; position: relative; }
+    li {
+      padding: 0 16px;
+      border-bottom: 1px solid #f0f2f5;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      transition: background 0.15s ease;
+      height: 44px;
+      animation: fadeSlideIn 0.3s ease both;
+      animation-delay: calc(var(--i, 0) * 0.04s);
+    }
     li:last-child { border-bottom: none; }
-    li:hover { background: #f8fafc; }
-    li a { color: #007acd; text-decoration: none; font-weight: 500; }
-    li a:hover { text-decoration: underline; }
-    li.file { color: #555; }
+    li:hover { background: #f4f8fc; }
+    li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: #007acd;
+      border-radius: 0;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    li:hover::before { opacity: 1; }
+    li a {
+      color: #1a1a1a;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    li a:hover { color: #007acd; }
+    li.file a { font-weight: 400; color: #444; }
+    li.file a:hover { color: #007acd; }
     .icon { font-size: 16px; flex-shrink: 0; }
-    .empty { padding: 24px 16px; text-align: center; color: #999; font-size: 14px; }
-    .upload-btn { background: #007acd; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: 8px; }
-    .upload-btn:hover { background: #005a9c; }
     .spacer { flex: 1; }
-    .download-icon { cursor: pointer; font-size: 14px; opacity: 0.6; }
-    .download-icon:hover { opacity: 1; }
-    .rename-icon { cursor: pointer; font-size: 14px; opacity: 0; transition: opacity 0.2s; margin-left: 4px; }
-    li:hover .rename-icon { opacity: 0.6; }
-    .rename-icon:hover { opacity: 1 !important; }
+
+    /* Action icons */
+    .action-icon {
+      cursor: pointer;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      padding: 4px;
+    }
+    li:hover .action-icon { opacity: 0.5; }
+    .action-icon:hover { opacity: 1 !important; }
+    .download-icon { opacity: 0.5; font-size: 12px; }
+    li:hover .download-icon { opacity: 0.7; }
+    .download-icon:hover { opacity: 1 !important; }
+
+    /* Empty & loading states */
+    .empty {
+      padding: 48px 16px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+    .loading {
+      padding: 48px 16px;
+      text-align: center;
+      color: #999;
+      font-size: 14px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #e0e4e8;
+      border-top-color: #007acd;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* Animations */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes cardEnter {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .card { animation: cardEnter 0.4s ease; }
   </style>
 </head>
 <body>

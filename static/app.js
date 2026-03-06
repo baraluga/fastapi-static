@@ -3,36 +3,40 @@ let currentPath = "/";
 
 function breadcrumb(path) {
   const parts = path.split("/").filter(Boolean);
-  let html = `<nav><div><a href="#" onclick="navigate('/');return false">root</a>`;
+  let html = `<nav><div class="breadcrumbs"><a href="#" onclick="navigate('/');return false">root</a>`;
   let built = "";
   for (const p of parts) {
     built += "/" + p;
-    html += `<span>/</span><a href="#" onclick="navigate('${built}');return false">${p}</a>`;
+    html += `<span class="sep">/</span><a href="#" onclick="navigate('${built}');return false">${p}</a>`;
   }
-  html += `</div><div><button class="upload-btn" onclick="createFolder()">New Folder</button>`;
-  html += `<button class="upload-btn" onclick="downloadZip('${path}')">Download as zip</button>`;
-  html += `<button class="upload-btn" onclick="document.getElementById('fileInput').click()">Upload</button></div></nav>`;
+  html += `</div><div class="nav-actions">`;
+  html += `<button class="btn btn-secondary" onclick="createFolder()">New Folder</button>`;
+  html += `<button class="btn btn-secondary" onclick="downloadZip('${path}')">Download zip</button>`;
+  html += `<button class="btn" onclick="document.getElementById('fileInput').click()">Upload</button>`;
+  html += `</div></nav>`;
   return html;
 }
 
 async function navigate(path) {
   currentPath = path;
+  app.innerHTML = `<div class="loading"><span class="spinner"></span></div>`;
   const res = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
   if (!res.ok) return (app.innerHTML = `<div class="empty">Error loading files</div>`);
   const files = await res.json();
   let html = breadcrumb(path);
   if (!files.length) { app.innerHTML = html + `<div class="empty">Empty folder</div>`; return; }
   html += "<ul>";
-  for (const f of files) {
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
     if (f.is_dir) {
       const next = (path === "/" ? "/" : path + "/") + f.name;
-      html += `<li><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
-      html += `<span class="rename-icon" onclick="renameItem('${next}', '${f.name}', event)" title="rename">✏️</span>`;
-      html += `<span class="spacer"></span><span class="download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
+      html += `<li style="--i:${i}"><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
+      html += `<span class="action-icon" onclick="renameItem('${next}', '${f.name}', event)" title="rename">✏️</span>`;
+      html += `<span class="spacer"></span><span class="action-icon download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
     } else {
       const filePath = (path === "/" ? "/" : path + "/") + f.name;
-      html += `<li class="file"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
-      html += `<span class="rename-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span><span class="spacer"></span></li>`;
+      html += `<li class="file" style="--i:${i}"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
+      html += `<span class="action-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span><span class="spacer"></span></li>`;
     }
   }
   app.innerHTML = html + "</ul>";
