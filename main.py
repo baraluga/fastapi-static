@@ -70,12 +70,15 @@ def download_zip(path: str = Query("/")):
 
     def generate_zip():
         buffer = BytesIO()
-        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as zf:
             for root, dirs, files in os.walk(target):
                 for file in files:
                     file_path = Path(root) / file
-                    arcname = file_path.relative_to(target)
-                    zf.write(file_path, arcname)
+                    arcname = str(file_path.relative_to(target))
+                    with open(file_path, "rb") as src, \
+                            zf.open(arcname, "w") as dest:
+                        while chunk := src.read(1024 * 1024):
+                            dest.write(chunk)
                     buffer.seek(0)
                     yield buffer.read()
                     buffer.seek(0)

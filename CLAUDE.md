@@ -63,6 +63,6 @@ The app serves at http://127.0.0.1:8000.
 
 - **Security:** Path traversal guarded via `Path.is_relative_to(ROOT_DIR)` on all endpoints
 - **Filenames:** `sanitize_name()` blocks `/`, `\`, `..`, null bytes, empty/whitespace names
-- **Large files:** Upload reads in 1MB chunks; zip download streams incrementally
+- **Large files:** Upload reads in 1MB chunks; zip download streams in 1MB chunks per file (ZIP_STORED, no compression, to avoid buffering)
 - **No frameworks:** Vanilla JS, no Jinja2, no build step
 - **Minimal:** Keep codebase tight, avoid over-engineering
