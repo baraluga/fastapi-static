@@ -9,7 +9,8 @@ function breadcrumb(path) {
     built += "/" + p;
     html += `<span>/</span><a href="#" onclick="navigate('${built}');return false">${p}</a>`;
   }
-  html += `</div><button class="upload-btn" onclick="document.getElementById('fileInput').click()">Upload</button></nav>`;
+  html += `</div><div><button class="upload-btn" onclick="downloadZip('${path}')">Download as zip</button>`;
+  html += `<button class="upload-btn" onclick="document.getElementById('fileInput').click()">Upload</button></div></nav>`;
   return html;
 }
 
@@ -24,7 +25,8 @@ async function navigate(path) {
   for (const f of files) {
     if (f.is_dir) {
       const next = (path === "/" ? "/" : path + "/") + f.name;
-      html += `<li><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a></li>`;
+      html += `<li><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
+      html += `<span class="download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
     } else {
       const filePath = (path === "/" ? "/" : path + "/") + f.name;
       html += `<li class="file"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a></li>`;
@@ -54,6 +56,10 @@ async function uploadFile() {
     alert("Upload failed");
   }
   input.value = "";
+}
+
+function downloadZip(path) {
+  window.open(`/api/download-zip?path=${encodeURIComponent(path)}`, '_blank');
 }
 
 navigate("/");
