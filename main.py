@@ -1,3 +1,4 @@
+import logging
 import os
 import zipfile
 from io import BytesIO
@@ -5,6 +6,11 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+)
+log = logging.getLogger(__name__)
 
 app = FastAPI()
 ROOT_DIR = Path(os.getenv("ROOT_DIR", "./sandbox")).resolve()
@@ -23,10 +29,12 @@ def list_files(path: str = Query("/")):
     target = (ROOT_DIR / path.lstrip("/")).resolve()
     if not target.is_relative_to(ROOT_DIR) or not target.is_dir():
         raise HTTPException(400, "Invalid path")
-    return [
+    entries = [
         {"name": entry.name, "is_dir": entry.is_dir()}
         for entry in sorted(target.iterdir())
     ]
+    log.info("LIST %s (%d items)", path, len(entries))
+    return entries
 
 
 @app.get("/api/download")
@@ -34,6 +42,7 @@ def download_file(path: str = Query(...)):
     target = (ROOT_DIR / path.lstrip("/")).resolve()
     if not target.is_relative_to(ROOT_DIR) or not target.is_file():
         raise HTTPException(400, "Invalid path")
+    log.info("DOWNLOAD %s", path)
     return FileResponse(target)
 
 
@@ -44,9 +53,12 @@ async def upload_file(file: UploadFile = File(...), path: str = Query("/")):
     if not target_dir.is_relative_to(ROOT_DIR) or not target_dir.is_dir():
         raise HTTPException(400, "Invalid path")
     target_file = target_dir / filename
+    size = 0
     with open(target_file, "wb") as f:
         while chunk := await file.read(1024 * 1024):
             f.write(chunk)
+            size += len(chunk)
+    log.info("UPLOAD %s/%s (%d bytes)", path, filename, size)
     return {"status": "success", "filename": filename}
 
 
@@ -74,6 +86,7 @@ def download_zip(path: str = Query("/")):
             yield remaining
 
     zip_name = target.name or "files"
+    log.info("ZIP %s", path)
     return StreamingResponse(
         generate_zip(),
         media_type="application/zip",
@@ -94,6 +107,7 @@ def create_folder(path: str = Query("/"), name: str = Query(...)):
     if new_folder.exists():
         raise HTTPException(400, "Folder already exists")
     new_folder.mkdir()
+    log.info("MKDIR %s/%s", path, folder_name)
     return {"status": "success", "name": folder_name}
 
 
@@ -107,6 +121,7 @@ def rename_item(path: str = Query(...), new_name: str = Query(...)):
     if new_path.exists():
         raise HTTPException(400, "Name already exists")
     target.rename(new_path)
+    log.info("RENAME %s -> %s", path, new_name_sanitized)
     return {"status": "success", "new_name": new_name_sanitized}
 
 
