@@ -44,20 +44,24 @@ function viewFile(path) {
 
 async function uploadFile() {
   const input = document.getElementById("fileInput");
-  const file = input.files[0];
-  if (!file) return;
-  const formData = new FormData();
-  formData.append("file", file);
-  const res = await fetch(`/api/upload?path=${encodeURIComponent(currentPath)}`, {
-    method: "POST",
-    body: formData,
-  });
-  if (res.ok) {
-    alert("File uploaded successfully!");
-    navigate(currentPath);
-  } else {
-    alert("Upload failed");
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const failed = [];
+  for (const file of files) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/upload?path=${encodeURIComponent(currentPath)}`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!res.ok) failed.push(file.name);
   }
+  if (failed.length) {
+    alert(`Failed to upload: ${failed.join(", ")}`);
+  } else {
+    alert(`${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully!`);
+  }
+  navigate(currentPath);
   input.value = "";
 }
 
