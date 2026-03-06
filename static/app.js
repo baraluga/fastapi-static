@@ -1,4 +1,5 @@
 const app = document.getElementById("app");
+let currentPath = "/";
 
 function breadcrumb(path) {
   const parts = path.split("/").filter(Boolean);
@@ -12,6 +13,7 @@ function breadcrumb(path) {
 }
 
 async function navigate(path) {
+  currentPath = path;
   const res = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
   if (!res.ok) return (app.innerHTML = `<div class="empty">Error loading files</div>`);
   const files = await res.json();
@@ -23,10 +25,15 @@ async function navigate(path) {
       const next = (path === "/" ? "/" : path + "/") + f.name;
       html += `<li><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a></li>`;
     } else {
-      html += `<li class="file"><span class="icon">📄</span>${f.name}</li>`;
+      const filePath = (path === "/" ? "/" : path + "/") + f.name;
+      html += `<li class="file"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a></li>`;
     }
   }
   app.innerHTML = html + "</ul>";
+}
+
+function viewFile(path) {
+  window.open(`/api/download?path=${encodeURIComponent(path)}`, '_blank');
 }
 
 navigate("/");
