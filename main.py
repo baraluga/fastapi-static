@@ -45,7 +45,8 @@ async def upload_file(file: UploadFile = File(...), path: str = Query("/")):
         raise HTTPException(400, "Invalid path")
     target_file = target_dir / filename
     with open(target_file, "wb") as f:
-        f.write(await file.read())
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
     return {"status": "success", "filename": filename}
 
 
@@ -54,19 +55,32 @@ def download_zip(path: str = Query("/")):
     target = (ROOT_DIR / path.lstrip("/")).resolve()
     if not target.is_relative_to(ROOT_DIR) or not target.is_dir():
         raise HTTPException(400, "Invalid path")
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for root, dirs, files in os.walk(target):
-            for file in files:
-                file_path = Path(root) / file
-                arcname = file_path.relative_to(target)
-                zip_file.write(file_path, arcname)
-    zip_buffer.seek(0)
-    zip_name = target.name if target.name else "files"
+
+    def generate_zip():
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(target):
+                for file in files:
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(target)
+                    zf.write(file_path, arcname)
+                    buffer.seek(0)
+                    yield buffer.read()
+                    buffer.seek(0)
+                    buffer.truncate()
+        buffer.seek(0)
+        remaining = buffer.read()
+        if remaining:
+            yield remaining
+
+    zip_name = target.name or "files"
     return StreamingResponse(
-        zip_buffer,
+        generate_zip(),
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{zip_name}.zip"'},
+        headers={
+            "Content-Disposition":
+                f'attachment; filename="{zip_name}.zip"'
+        },
     )
 
 
