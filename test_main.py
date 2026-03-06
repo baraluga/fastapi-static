@@ -21,19 +21,23 @@ def client(tmp_path):
 
 # --- sanitize_name ---
 
+
 def test_sanitize_strips_slashes():
     assert sanitize_name("foo/bar") == "foobar"
     assert sanitize_name("foo\\bar") == "foobar"
 
+
 def test_sanitize_strips_dotdot():
     assert sanitize_name("..etc") == "etc"
     assert sanitize_name("foo..bar") == "foobar"
+
 
 def test_sanitize_rejects_empty():
     with pytest.raises(HTTPException):
         sanitize_name("")
     with pytest.raises(HTTPException):
         sanitize_name("   ")
+
 
 def test_sanitize_rejects_null_bytes():
     with pytest.raises(HTTPException):
@@ -42,6 +46,7 @@ def test_sanitize_rejects_null_bytes():
 
 # --- GET /api/files ---
 
+
 def test_list_files(client):
     res = client.get("/api/files?path=/")
     assert res.status_code == 200
@@ -49,15 +54,18 @@ def test_list_files(client):
     assert "hello.txt" in names
     assert "subdir" in names
 
+
 def test_list_files_subdir(client):
     res = client.get("/api/files?path=/subdir")
     assert res.status_code == 200
     names = {f["name"] for f in res.json()}
     assert "nested.txt" in names
 
+
 def test_list_files_invalid_path(client):
     res = client.get("/api/files?path=/nonexistent")
     assert res.status_code == 400
+
 
 def test_list_files_path_traversal(client):
     res = client.get("/api/files?path=/../../etc")
@@ -66,14 +74,17 @@ def test_list_files_path_traversal(client):
 
 # --- GET /api/download ---
 
+
 def test_download_file(client):
     res = client.get("/api/download?path=/hello.txt")
     assert res.status_code == 200
     assert res.text == "hello world"
 
+
 def test_download_nonexistent(client):
     res = client.get("/api/download?path=/nope.txt")
     assert res.status_code == 400
+
 
 def test_download_path_traversal(client):
     res = client.get("/api/download?path=/../../etc/passwd")
@@ -81,6 +92,7 @@ def test_download_path_traversal(client):
 
 
 # --- POST /api/upload ---
+
 
 def test_upload_file(client, tmp_path):
     res = client.post(
@@ -91,6 +103,7 @@ def test_upload_file(client, tmp_path):
     assert res.json()["filename"] == "test.txt"
     assert (tmp_path / "test.txt").read_text() == "test content"
 
+
 def test_upload_sanitizes_filename(client, tmp_path):
     res = client.post(
         "/api/upload?path=/",
@@ -98,6 +111,26 @@ def test_upload_sanitizes_filename(client, tmp_path):
     )
     assert res.status_code == 200
     assert ".." not in res.json()["filename"]
+
+
+def test_upload_to_subdir(client, tmp_path):
+    res = client.post(
+        "/api/upload?path=/subdir",
+        files={"file": ("sub.txt", b"in subdir", "text/plain")},
+    )
+    assert res.status_code == 200
+    assert (tmp_path / "subdir" / "sub.txt").read_text() == "in subdir"
+
+
+def test_upload_large_file(client, tmp_path):
+    data = b"x" * (2 * 1024 * 1024)  # 2MB to test chunked reading
+    res = client.post(
+        "/api/upload?path=/",
+        files={"file": ("large.bin", data, "application/octet-stream")},
+    )
+    assert res.status_code == 200
+    assert (tmp_path / "large.bin").stat().st_size == len(data)
+
 
 def test_upload_invalid_dir(client):
     res = client.post(
@@ -109,12 +142,14 @@ def test_upload_invalid_dir(client):
 
 # --- GET /api/download-zip ---
 
+
 def test_download_zip(client):
     res = client.get("/api/download-zip?path=/subdir")
     assert res.status_code == 200
     assert res.headers["content-type"] == "application/zip"
     zf = zipfile.ZipFile(BytesIO(res.content))
     assert "nested.txt" in zf.namelist()
+
 
 def test_download_zip_invalid_path(client):
     res = client.get("/api/download-zip?path=/nonexistent")
@@ -123,15 +158,18 @@ def test_download_zip_invalid_path(client):
 
 # --- POST /api/create-folder ---
 
+
 def test_create_folder(client, tmp_path):
     res = client.post("/api/create-folder?path=/&name=newfolder")
     assert res.status_code == 200
     assert res.json()["name"] == "newfolder"
     assert (tmp_path / "newfolder").is_dir()
 
+
 def test_create_folder_already_exists(client):
     res = client.post("/api/create-folder?path=/&name=subdir")
     assert res.status_code == 400
+
 
 def test_create_folder_sanitizes_name(client, tmp_path):
     res = client.post("/api/create-folder?path=/&name=..%2Fevil")
@@ -143,6 +181,7 @@ def test_create_folder_sanitizes_name(client, tmp_path):
 
 # --- POST /api/rename ---
 
+
 def test_rename_file(client, tmp_path):
     res = client.post("/api/rename?path=/hello.txt&new_name=renamed.txt")
     assert res.status_code == 200
@@ -150,19 +189,23 @@ def test_rename_file(client, tmp_path):
     assert (tmp_path / "renamed.txt").exists()
     assert not (tmp_path / "hello.txt").exists()
 
+
 def test_rename_folder(client, tmp_path):
     res = client.post("/api/rename?path=/subdir&new_name=renamed_dir")
     assert res.status_code == 200
     assert (tmp_path / "renamed_dir").is_dir()
     assert not (tmp_path / "subdir").exists()
 
+
 def test_rename_already_exists(client):
     res = client.post("/api/rename?path=/hello.txt&new_name=subdir")
     assert res.status_code == 400
 
+
 def test_rename_nonexistent(client):
     res = client.post("/api/rename?path=/nope.txt&new_name=whatever")
     assert res.status_code == 400
+
 
 def test_rename_sanitizes_name(client):
     res = client.post("/api/rename?path=/hello.txt&new_name=../evil.txt")
