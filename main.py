@@ -75,18 +75,12 @@ def download_zip(path: str = Query("/")):
                 for file in files:
                     file_path = Path(root) / file
                     arcname = str(file_path.relative_to(target))
-                    with open(file_path, "rb") as src, \
-                            zf.open(arcname, "w") as dest:
-                        while chunk := src.read(1024 * 1024):
-                            dest.write(chunk)
-                    buffer.seek(0)
-                    yield buffer.read()
-                    buffer.seek(0)
-                    buffer.truncate()
+                    zf.write(file_path, arcname)
+
+        # Stream the complete, valid zip in 1MB chunks
         buffer.seek(0)
-        remaining = buffer.read()
-        if remaining:
-            yield remaining
+        while chunk := buffer.read(1024 * 1024):
+            yield chunk
 
     zip_name = target.name or "files"
     log.info("ZIP %s", path)
