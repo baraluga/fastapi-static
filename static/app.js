@@ -52,9 +52,10 @@ function uploadOneFile(file, path) {
     const formData = new FormData();
     formData.append("file", file);
     xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) updateProgress(Math.round((e.loaded / e.total) * 100));
+      if (e.lengthComputable) updateProgress(Math.round((e.loaded / e.total) * 95));
     };
-    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+    xhr.upload.onload = () => updateProgressLabel("Processing...");
+    xhr.onload = () => { updateProgress(100); resolve(xhr.status >= 200 && xhr.status < 300); };
     xhr.onerror = () => resolve(false);
     xhr.open("POST", `/api/upload?path=${encodeURIComponent(path)}`);
     xhr.send(formData);
@@ -74,6 +75,11 @@ function showProgress(label) {
 function updateProgress(pct) {
   const bar = app.querySelector(".upload-progress-bar");
   if (bar) bar.style.width = pct + "%";
+}
+
+function updateProgressLabel(text) {
+  const label = app.querySelector(".upload-progress-label");
+  if (label) label.textContent = text;
 }
 
 function hideProgress() {
