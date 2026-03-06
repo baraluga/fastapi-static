@@ -9,7 +9,8 @@ function breadcrumb(path) {
     built += "/" + p;
     html += `<span>/</span><a href="#" onclick="navigate('${built}');return false">${p}</a>`;
   }
-  html += `</div><div><button class="upload-btn" onclick="downloadZip('${path}')">Download as zip</button>`;
+  html += `</div><div><button class="upload-btn" onclick="createFolder()">New Folder</button>`;
+  html += `<button class="upload-btn" onclick="downloadZip('${path}')">Download as zip</button>`;
   html += `<button class="upload-btn" onclick="document.getElementById('fileInput').click()">Upload</button></div></nav>`;
   return html;
 }
@@ -26,10 +27,12 @@ async function navigate(path) {
     if (f.is_dir) {
       const next = (path === "/" ? "/" : path + "/") + f.name;
       html += `<li><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
-      html += `<span class="download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
+      html += `<span class="rename-icon" onclick="renameItem('${next}', '${f.name}', event)" title="rename">✏️</span>`;
+      html += `<span class="spacer"></span><span class="download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
     } else {
       const filePath = (path === "/" ? "/" : path + "/") + f.name;
-      html += `<li class="file"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a></li>`;
+      html += `<li class="file"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
+      html += `<span class="rename-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span><span class="spacer"></span></li>`;
     }
   }
   app.innerHTML = html + "</ul>";
@@ -60,6 +63,35 @@ async function uploadFile() {
 
 function downloadZip(path) {
   window.open(`/api/download-zip?path=${encodeURIComponent(path)}`, '_blank');
+}
+
+async function createFolder() {
+  const folderName = prompt("Enter folder name:");
+  if (!folderName) return;
+  const res = await fetch(`/api/create-folder?path=${encodeURIComponent(currentPath)}&name=${encodeURIComponent(folderName)}`, {
+    method: "POST",
+  });
+  if (res.ok) {
+    navigate(currentPath);
+  } else {
+    const error = await res.json();
+    alert(error.detail || "Failed to create folder");
+  }
+}
+
+async function renameItem(itemPath, oldName, event) {
+  event.stopPropagation();
+  const newName = prompt("Rename to:", oldName);
+  if (!newName || newName === oldName) return;
+  const res = await fetch(`/api/rename?path=${encodeURIComponent(itemPath)}&new_name=${encodeURIComponent(newName)}`, {
+    method: "POST",
+  });
+  if (res.ok) {
+    navigate(currentPath);
+  } else {
+    const error = await res.json();
+    alert(error.detail || "Failed to rename");
+  }
 }
 
 navigate("/");

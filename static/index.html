@@ -15,7 +15,7 @@
     nav a:hover { text-decoration: underline; }
     nav span { margin: 0 4px; color: #ccc; }
     ul { list-style: none; }
-    li { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    li { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; display: flex; align-items: center; gap: 8px; position: relative; }
     li:last-child { border-bottom: none; }
     li:hover { background: #f8fafc; }
     li a { color: #007acd; text-decoration: none; font-weight: 500; }
@@ -25,8 +25,12 @@
     .empty { padding: 24px 16px; text-align: center; color: #999; font-size: 14px; }
     .upload-btn { background: #007acd; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-left: 8px; }
     .upload-btn:hover { background: #005a9c; }
-    .download-icon { margin-left: auto; cursor: pointer; font-size: 14px; opacity: 0.6; }
+    .spacer { flex: 1; }
+    .download-icon { cursor: pointer; font-size: 14px; opacity: 0.6; }
     .download-icon:hover { opacity: 1; }
+    .rename-icon { cursor: pointer; font-size: 14px; opacity: 0; transition: opacity 0.2s; margin-left: 4px; }
+    li:hover .rename-icon { opacity: 0.6; }
+    .rename-icon:hover { opacity: 1 !important; }
   </style>
 </head>
 <body>
