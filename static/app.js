@@ -3,13 +3,14 @@ let currentPath = "/";
 
 function breadcrumb(path) {
   const parts = path.split("/").filter(Boolean);
-  let html = `<nav><a href="#" onclick="navigate('/');return false">root</a>`;
+  let html = `<nav><div><a href="#" onclick="navigate('/');return false">root</a>`;
   let built = "";
   for (const p of parts) {
     built += "/" + p;
     html += `<span>/</span><a href="#" onclick="navigate('${built}');return false">${p}</a>`;
   }
-  return html + "</nav>";
+  html += `</div><button class="upload-btn" onclick="document.getElementById('fileInput').click()">Upload</button></nav>`;
+  return html;
 }
 
 async function navigate(path) {
@@ -34,6 +35,25 @@ async function navigate(path) {
 
 function viewFile(path) {
   window.open(`/api/download?path=${encodeURIComponent(path)}`, '_blank');
+}
+
+async function uploadFile() {
+  const input = document.getElementById("fileInput");
+  const file = input.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(`/api/upload?path=${encodeURIComponent(currentPath)}`, {
+    method: "POST",
+    body: formData,
+  });
+  if (res.ok) {
+    alert("File uploaded successfully!");
+    navigate(currentPath);
+  } else {
+    alert("Upload failed");
+  }
+  input.value = "";
 }
 
 navigate("/");
