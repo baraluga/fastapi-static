@@ -1,7 +1,9 @@
 import os
+import zipfile
+from io import BytesIO
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
@@ -39,6 +41,27 @@ async def upload_file(file: UploadFile = File(...), path: str = Query("/")):
     with open(target_file, "wb") as f:
         f.write(await file.read())
     return {"status": "success", "filename": filename}
+
+
+@app.get("/api/download-zip")
+def download_zip(path: str = Query("/")):
+    target = (ROOT_DIR / path.lstrip("/")).resolve()
+    if not target.is_relative_to(ROOT_DIR) or not target.is_dir():
+        raise HTTPException(400, "Invalid path")
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for root, dirs, files in os.walk(target):
+            for file in files:
+                file_path = Path(root) / file
+                arcname = file_path.relative_to(target)
+                zip_file.write(file_path, arcname)
+    zip_buffer.seek(0)
+    zip_name = target.name if target.name else "files"
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}.zip"'},
+    )
 
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
