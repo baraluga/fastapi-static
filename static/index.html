@@ -156,6 +156,29 @@
       animation: spin 0.6s linear infinite;
     }
 
+    /* Upload progress */
+    .upload-progress {
+      padding: 12px 16px;
+      border-bottom: 1px solid #eef1f5;
+      background: #fafbfc;
+    }
+    .upload-progress-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    .upload-progress-track {
+      height: 3px;
+      background: #e0e4e8;
+      overflow: hidden;
+    }
+    .upload-progress-bar {
+      height: 100%;
+      background: #007acd;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
     /* Animations */
     @keyframes fadeSlideIn {
       from { opacity: 0; transform: translateY(8px); }

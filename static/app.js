@@ -46,24 +46,59 @@ function viewFile(path) {
   window.open(`/api/download?path=${encodeURIComponent(path)}`, '_blank');
 }
 
+function uploadOneFile(file, path) {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) updateProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+    xhr.onerror = () => resolve(false);
+    xhr.open("POST", `/api/upload?path=${encodeURIComponent(path)}`);
+    xhr.send(formData);
+  });
+}
+
+function showProgress(label) {
+  const nav = app.querySelector("nav");
+  if (!nav) return;
+  const existing = app.querySelector(".upload-progress");
+  if (existing) existing.remove();
+  nav.insertAdjacentHTML("afterend",
+    `<div class="upload-progress"><div class="upload-progress-label">${label}</div>` +
+    `<div class="upload-progress-track"><div class="upload-progress-bar"></div></div></div>`);
+}
+
+function updateProgress(pct) {
+  const bar = app.querySelector(".upload-progress-bar");
+  if (bar) bar.style.width = pct + "%";
+}
+
+function hideProgress() {
+  const el = app.querySelector(".upload-progress");
+  if (el) el.remove();
+}
+
 async function uploadFile() {
   const input = document.getElementById("fileInput");
   const files = Array.from(input.files);
   if (!files.length) return;
   const failed = [];
-  for (const file of files) {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch(`/api/upload?path=${encodeURIComponent(currentPath)}`, {
-      method: "POST",
-      body: formData,
-    });
-    if (!res.ok) failed.push(file.name);
+  const total = files.length;
+  for (let i = 0; i < total; i++) {
+    const label = total > 1
+      ? `Uploading ${i + 1}/${total}: ${files[i].name}`
+      : `Uploading ${files[i].name}`;
+    showProgress(label);
+    updateProgress(0);
+    const ok = await uploadOneFile(files[i], currentPath);
+    if (!ok) failed.push(files[i].name);
   }
+  hideProgress();
   if (failed.length) {
     alert(`Failed to upload: ${failed.join(", ")}`);
-  } else {
-    alert(`${files.length} file${files.length > 1 ? "s" : ""} uploaded successfully!`);
   }
   navigate(currentPath);
   input.value = "";
