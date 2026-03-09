@@ -1,6 +1,6 @@
 # File Browser
 
-A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, upload files, create folders, rename items, and download files or folders as zip archives. No authentication, no build step.
+A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, upload files (button or drag-and-drop), create folders, rename items, and download files or folders as zip archives. No authentication, no build step.
 
 ## Getting Started
 
@@ -20,11 +20,11 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 ## Features
 
 - Browse directories with breadcrumb navigation
-- Upload single or multiple files with progress bar
+- Upload files via button or drag-and-drop with progress bar
 - Download individual files or entire folders as zip
 - Create new folders
 - Rename files and folders inline
-- Animated UI with loading states
+- Animated UI with loading states and drag overlay
 - Streaming uploads and zip downloads for large files
 - Request logging on all endpoints
 
@@ -59,11 +59,12 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs tests on every push 
 main.py            # FastAPI backend (all endpoints)
 test_main.py       # pytest test suite (26 tests)
 static/
-  index.html       # HTML shell + inline CSS
-  app.js           # Vanilla JS frontend
+  index.html       # HTML shell + inline CSS + drag overlay
+  app.js           # Vanilla JS frontend (197 lines)
 sandbox/           # Default root directory for development
 render.yaml        # Render deployment config
 requirements.txt   # Python dependencies
+.gitignore         # Python and pytest artifacts
 ```
 
 ## Security
