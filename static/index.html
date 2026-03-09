@@ -53,7 +53,7 @@
     .breadcrumbs a:hover { background: rgba(0,122,205,.08); }
     .breadcrumbs a:last-child { font-weight: 600; color: #005a9c; }
     .breadcrumbs .sep { margin: 0 1px; color: #c0c8d0; font-size: 11px; user-select: none; }
-    .nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
 
     /* Search */
     .search-container {
@@ -119,6 +119,17 @@
       border: 1px solid #d8dfe6;
     }
     .btn-secondary:hover { background: rgba(0,122,205,.06); border-color: #007acd; box-shadow: 0 2px 8px rgba(0,122,205,.12); }
+    .btn-sm {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+
+    /* Content actions */
+    .content-actions {
+      padding: 10px 16px;
+      border-bottom: 1px solid #eef1f5;
+      background: #fafbfc;
+    }
 
     /* File list */
     ul { list-style: none; }

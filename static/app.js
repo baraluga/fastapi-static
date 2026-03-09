@@ -24,7 +24,6 @@ function breadcrumb(path) {
   }
   html += `</div>`;
   html += `<div class="nav-actions">`;
-  html += `<button class="btn btn-secondary" onclick="createFolder()">New Folder</button>`;
   html += `<button class="btn btn-secondary" onclick="downloadZip('${path}')">Download zip</button>`;
   html += `<button class="btn btn-secondary" onclick="document.getElementById('folderInput').click()">Upload Folder</button>`;
   html += `<button class="btn" onclick="document.getElementById('fileInput').click()">Upload Files</button>`;
@@ -39,7 +38,14 @@ async function navigate(path) {
   if (!res.ok) return (app.innerHTML = `<div class="empty">Error loading files</div>`);
   const files = await res.json();
   let html = breadcrumb(path);
-  if (!files.length) { app.innerHTML = html + `<div class="empty">Empty folder</div>`; return; }
+
+  // Add "New Folder" button before file list
+  html += `<div class="content-actions"><button class="btn btn-secondary btn-sm" onclick="createFolder()">+ New Folder</button></div>`;
+
+  if (!files.length) {
+    app.innerHTML = html + `<div class="empty">Empty folder</div>`;
+    return;
+  }
   html += "<ul>";
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
@@ -230,6 +236,7 @@ async function searchFiles(query) {
 
 function displaySearchResults(results, query) {
   let html = breadcrumb(currentPath);
+  html += `<div class="content-actions"><button class="btn btn-secondary btn-sm" onclick="createFolder()">+ New Folder</button></div>`;
   html += `<div class="search-results-header">Search results for: <strong>${query}</strong></div>`;
 
   if (!results.length) {
