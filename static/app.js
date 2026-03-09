@@ -1,3 +1,11 @@
+/* === Icons === */
+const ICON_FOLDER = `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 6a2 2 0 0 1 2-2h3.172a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 10.828 6H16a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" fill="#f59e0b"/></svg>`;
+const ICON_FILE   = `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4a2 2 0 0 1 2-2h5.172a2 2 0 0 1 1.414.586l2.828 2.828A2 2 0 0 1 16 6.828V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z" fill="#dbeafe" stroke="#93c5fd" stroke-width="1" stroke-linejoin="round"/></svg>`;
+const ICON_RENAME = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+const ICON_DELETE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`;
+const ICON_DOWNLOAD = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const ICON_SEARCH = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
 const app = document.getElementById("app");
 let currentPath = "/";
 let currentSearchQuery = "";
@@ -17,7 +25,8 @@ function breadcrumb(path) {
   }
   html += `</div>`;
   html += `<div class="search-container">`;
-  html += `<input type="text" class="search-input" placeholder="Search files..." `;
+  html += `<span class="search-icon">${ICON_SEARCH}</span>`;
+  html += `<input type="text" class="search-input" placeholder="Search..." `;
   html += `oninput="handleSearchInput(event)" value="${currentSearchQuery}">`;
   if (currentSearchQuery) {
     html += `<span class="search-clear" onclick="clearSearch()">×</span>`;
@@ -39,11 +48,10 @@ async function navigate(path) {
   const files = await res.json();
   let html = breadcrumb(path);
 
-  // Add "New Folder" button before file list
   html += `<div class="content-actions"><button class="btn btn-secondary btn-sm" onclick="createFolder()">+ New Folder</button></div>`;
 
   if (!files.length) {
-    app.innerHTML = html + `<div class="empty">Empty folder</div>`;
+    app.innerHTML = html + `<div class="empty"><div class="empty-icon">📂</div>This folder is empty</div>`;
     return;
   }
   html += "<ul>";
@@ -51,15 +59,15 @@ async function navigate(path) {
     const f = files[i];
     if (f.is_dir) {
       const next = joinPath(path, f.name);
-      html += `<li style="--i:${i}"><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
-      html += `<span class="action-icon" onclick="renameItem('${next}', '${f.name}', event)" title="rename">✏️</span>`;
-      html += `<span class="action-icon" onclick="deleteItem('${next}', '${f.name}', true, event)" title="delete">🗑️</span>`;
-      html += `<span class="spacer"></span><span class="action-icon download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
+      html += `<li style="--i:${i}"><span class="icon">${ICON_FOLDER}</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
+      html += `<span class="action-btn" onclick="renameItem('${next}', '${f.name}', event)" title="Rename">${ICON_RENAME}</span>`;
+      html += `<span class="action-btn delete" onclick="deleteItem('${next}', '${f.name}', true, event)" title="Delete">${ICON_DELETE}</span>`;
+      html += `<span class="spacer"></span><span class="download-btn" onclick="downloadZip('${next}')" title="Download as zip">${ICON_DOWNLOAD}</span></li>`;
     } else {
       const filePath = joinPath(path, f.name);
-      html += `<li class="file" style="--i:${i}"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
-      html += `<span class="action-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span>`;
-      html += `<span class="action-icon" onclick="deleteItem('${filePath}', '${f.name}', false, event)" title="delete">🗑️</span>`;
+      html += `<li class="file" style="--i:${i}"><span class="icon">${ICON_FILE}</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
+      html += `<span class="action-btn" onclick="renameItem('${filePath}', '${f.name}', event)" title="Rename">${ICON_RENAME}</span>`;
+      html += `<span class="action-btn delete" onclick="deleteItem('${filePath}', '${f.name}', false, event)" title="Delete">${ICON_DELETE}</span>`;
       html += `<span class="spacer"></span></li>`;
     }
   }
@@ -148,7 +156,7 @@ async function uploadFile() {
 
   const filesWithPaths = files.map((file) => ({
     file: file,
-    relativePath: null, // No folder structure for individual files
+    relativePath: null,
   }));
 
   await uploadFiles(filesWithPaths);
@@ -160,7 +168,6 @@ async function uploadFolder() {
   const files = Array.from(input.files);
   if (!files.length) return;
 
-  // Extract files with their relative paths (webkitRelativePath)
   const filesWithPaths = files.map((file) => ({
     file: file,
     relativePath: file.webkitRelativePath,
@@ -258,22 +265,22 @@ async function searchFiles(query) {
 function displaySearchResults(results, query) {
   let html = breadcrumb(currentPath);
   html += `<div class="content-actions"><button class="btn btn-secondary btn-sm" onclick="createFolder()">+ New Folder</button></div>`;
-  html += `<div class="search-results-header">Search results for: <strong>${query}</strong></div>`;
+  html += `<div class="search-results-header">Results for: <strong>${query}</strong></div>`;
 
   if (!results.length) {
-    app.innerHTML = html + `<div class="empty">No files found for: ${query}</div>`;
+    app.innerHTML = html + `<div class="empty"><div class="empty-icon">🔍</div>No files found for: ${query}</div>`;
     return;
   }
 
   html += "<ul>";
   for (let i = 0; i < results.length; i++) {
     const item = results[i];
-    const icon = item.is_dir ? "📁" : "📄";
+    const icon = item.is_dir ? ICON_FOLDER : ICON_FILE;
     const pathDisplay = item.parent_path === "/" ? "/" : item.parent_path;
     html += `<li style="--i:${i}">`;
     html += `<span class="icon">${icon}</span>`;
     html += `<a href="#" onclick="navigateToParent('${item.parent_path}');return false">${item.name}</a>`;
-    html += `<span style="margin-left: 8px; font-size: 12px; color: #999;">${pathDisplay}</span>`;
+    html += `<span style="margin-left: 8px; font-size: 12px; color: #9ca3af;">${pathDisplay}</span>`;
     html += `<span class="spacer"></span>`;
     html += `</li>`;
   }
