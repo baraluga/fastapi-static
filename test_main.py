@@ -211,3 +211,78 @@ def test_rename_sanitizes_name(client):
     res = client.post("/api/rename?path=/hello.txt&new_name=../evil.txt")
     assert res.status_code == 200
     assert ".." not in res.json()["new_name"]
+
+
+# --- GET /api/search ---
+
+
+def test_search_finds_files(client):
+    res = client.get("/api/search?query=hello")
+    assert res.status_code == 200
+    results = res.json()
+    assert len(results) == 1
+    assert results[0]["name"] == "hello.txt"
+    assert results[0]["path"] == "/hello.txt"
+    assert results[0]["is_dir"] is False
+    assert results[0]["parent_path"] == "/"
+
+
+def test_search_finds_nested_files(client):
+    res = client.get("/api/search?query=nested")
+    assert res.status_code == 200
+    results = res.json()
+    assert len(results) == 1
+    assert results[0]["name"] == "nested.txt"
+    assert results[0]["path"] == "/subdir/nested.txt"
+    assert results[0]["is_dir"] is False
+    assert results[0]["parent_path"] == "/subdir"
+
+
+def test_search_finds_directories(client):
+    res = client.get("/api/search?query=subdir")
+    assert res.status_code == 200
+    results = res.json()
+    assert len(results) == 1
+    assert results[0]["name"] == "subdir"
+    assert results[0]["path"] == "/subdir"
+    assert results[0]["is_dir"] is True
+    assert results[0]["parent_path"] == "/"
+
+
+def test_search_case_insensitive(client):
+    res = client.get("/api/search?query=HELLO")
+    assert res.status_code == 200
+    results = res.json()
+    assert len(results) == 1
+    assert results[0]["name"] == "hello.txt"
+
+
+def test_search_partial_match(client):
+    res = client.get("/api/search?query=txt")
+    assert res.status_code == 200
+    results = res.json()
+    names = {r["name"] for r in results}
+    assert "hello.txt" in names
+    assert "nested.txt" in names
+
+
+def test_search_no_results(client):
+    res = client.get("/api/search?query=nonexistent")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_search_empty_query(client):
+    res = client.get("/api/search?query=")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_search_result_limit(client, tmp_path):
+    # Create more than 50 files to test the limit
+    for i in range(60):
+        (tmp_path / f"file{i}.txt").write_text(f"content{i}")
+    res = client.get("/api/search?query=file")
+    assert res.status_code == 200
+    results = res.json()
+    assert len(results) == 50  # Should be limited to 50
