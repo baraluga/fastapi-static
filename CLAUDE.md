@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A minimal file browser built with FastAPI (backend) and vanilla JS (frontend). Browse directories, upload files, create folders, rename items, download files/folders as zip. No auth.
+A minimal file browser built with FastAPI (backend) and vanilla JS (frontend). Browse directories, upload files (button or drag-and-drop), create folders, rename items, download files/folders as zip. No auth.
 
 ## Development
 
@@ -43,9 +43,10 @@ The app serves at http://127.0.0.1:8000.
 - Reads from `ROOT_DIR` env var (defaults to `./sandbox`)
 
 **Frontend:**
-- **static/index.html** — HTML shell with inline CSS (#007acd theme), animated transitions
+- **static/index.html** — HTML shell with inline CSS (#007acd theme), animated transitions, drag-and-drop overlay
 - **static/app.js** — Vanilla JS, DOM manipulation, breadcrumb navigation
 - Multi-file upload via XHR with progress bar (0-95% upload, "Processing..." server write, 100% confirmed)
+- Drag-and-drop upload support with full-page drop zone and visual indicator
 - Inline rename via hover icons, folder creation via nav button
 - Staggered list animations, loading spinner, ephemeral storage disclaimer
 
