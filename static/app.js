@@ -26,7 +26,8 @@ function breadcrumb(path) {
   html += `<div class="nav-actions">`;
   html += `<button class="btn btn-secondary" onclick="createFolder()">New Folder</button>`;
   html += `<button class="btn btn-secondary" onclick="downloadZip('${path}')">Download zip</button>`;
-  html += `<button class="btn" onclick="document.getElementById('fileInput').click()">Upload</button>`;
+  html += `<button class="btn btn-secondary" onclick="document.getElementById('folderInput').click()">Upload Folder</button>`;
+  html += `<button class="btn" onclick="document.getElementById('fileInput').click()">Upload Files</button>`;
   html += `</div></nav>`;
   return html;
 }
@@ -60,7 +61,7 @@ function viewFile(path) {
   window.open(`/api/download?path=${encodeURIComponent(path)}`, '_blank');
 }
 
-function uploadOneFile(file, path) {
+function uploadOneFile(file, path, relativePath = null) {
   return new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
@@ -71,7 +72,13 @@ function uploadOneFile(file, path) {
     xhr.upload.onload = () => updateProgressLabel("Processing...");
     xhr.onload = () => { updateProgress(100); resolve(xhr.status >= 200 && xhr.status < 300); };
     xhr.onerror = () => resolve(false);
-    xhr.open("POST", `/api/upload?path=${encodeURIComponent(path)}`);
+
+    let url = `/api/upload?path=${encodeURIComponent(path)}`;
+    if (relativePath) {
+      url += `&relative_path=${encodeURIComponent(relativePath)}`;
+    }
+
+    xhr.open("POST", url);
     xhr.send(formData);
   });
 }
@@ -101,17 +108,22 @@ function hideProgress() {
   if (el) el.remove();
 }
 
-async function uploadFiles(files) {
+async function uploadFiles(filesWithPaths) {
   const failed = [];
-  const total = files.length;
+  const total = filesWithPaths.length;
   for (let i = 0; i < total; i++) {
+    const { file, relativePath } = filesWithPaths[i];
+    const displayName = relativePath || file.name;
+
     const label = total > 1
-      ? `Uploading ${i + 1}/${total}: ${files[i].name}`
-      : `Uploading ${files[i].name}`;
+      ? `Uploading ${i + 1}/${total}: ${displayName}`
+      : `Uploading ${displayName}`;
+
     showProgress(label);
     updateProgress(0);
-    const ok = await uploadOneFile(files[i], currentPath);
-    if (!ok) failed.push(files[i].name);
+
+    const ok = await uploadOneFile(file, currentPath, relativePath);
+    if (!ok) failed.push(displayName);
   }
   hideProgress();
   if (failed.length) {
@@ -124,7 +136,28 @@ async function uploadFile() {
   const input = document.getElementById("fileInput");
   const files = Array.from(input.files);
   if (!files.length) return;
-  await uploadFiles(files);
+
+  const filesWithPaths = files.map((file) => ({
+    file: file,
+    relativePath: null, // No folder structure for individual files
+  }));
+
+  await uploadFiles(filesWithPaths);
+  input.value = "";
+}
+
+async function uploadFolder() {
+  const input = document.getElementById("folderInput");
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  // Extract files with their relative paths (webkitRelativePath)
+  const filesWithPaths = files.map((file) => ({
+    file: file,
+    relativePath: file.webkitRelativePath,
+  }));
+
+  await uploadFiles(filesWithPaths);
   input.value = "";
 }
 
@@ -255,16 +288,70 @@ document.addEventListener("drop", async (e) => {
   dragDepth = 0;
   dragOverlay.classList.remove("active");
 
-  const files = Array.from(e.dataTransfer.files);
-  if (!files.length) return;
+  const items = Array.from(e.dataTransfer.items);
+  if (!items.length) return;
 
-  // Filter out directories (only upload files)
-  const actualFiles = files.filter(f => f.size > 0 || f.type !== "");
+  const filesWithPaths = await collectFilesFromDrop(items);
 
-  if (!actualFiles.length) {
-    alert("No files to upload. Folder upload is not supported via drag and drop.");
+  if (!filesWithPaths.length) {
+    alert("No files found to upload.");
     return;
   }
 
-  await uploadFiles(actualFiles);
+  await uploadFiles(filesWithPaths);
 });
+
+// Recursively collect files from dropped folders
+async function collectFilesFromDrop(items) {
+  const filesWithPaths = [];
+
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry();
+    if (entry) {
+      await traverseEntry(entry, "", filesWithPaths);
+    }
+  }
+
+  return filesWithPaths;
+}
+
+// Recursive traversal of FileSystemEntry tree
+async function traverseEntry(entry, parentPath, filesWithPaths) {
+  if (entry.isFile) {
+    return new Promise((resolve) => {
+      entry.file((file) => {
+        const relativePath = parentPath
+          ? `${parentPath}/${file.name}`
+          : file.name;
+        filesWithPaths.push({ file, relativePath });
+        resolve();
+      });
+    });
+  } else if (entry.isDirectory) {
+    const dirReader = entry.createReader();
+
+    // Handle readEntries() batch limit (max ~100 per call)
+    const readAllEntries = async () => {
+      return new Promise((resolve) => {
+        const allEntries = [];
+        const readBatch = () => {
+          dirReader.readEntries((entries) => {
+            if (entries.length === 0) {
+              resolve(allEntries);
+            } else {
+              allEntries.push(...entries);
+              readBatch();
+            }
+          });
+        };
+        readBatch();
+      });
+    };
+
+    const entries = await readAllEntries();
+    for (const childEntry of entries) {
+      const newPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+      await traverseEntry(childEntry, newPath, filesWithPaths);
+    }
+  }
+}

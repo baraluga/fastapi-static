@@ -278,10 +278,11 @@
     <h1>File Browser</h1>
     <div id="app" class="card"></div>
     <input type="file" id="fileInput" style="display:none" multiple onchange="uploadFile()">
+    <input type="file" id="folderInput" style="display:none" webkitdirectory onchange="uploadFolder()">
     <div class="disclaimer">Storage is ephemeral. Files will be lost after a period of inactivity.</div>
   </div>
   <div class="drag-overlay" id="dragOverlay">
-    <div class="drag-overlay-content">Drop files to upload</div>
+    <div class="drag-overlay-content">Drop files or folders to upload</div>
   </div>
   <script src="app.js"></script>
 </body>
