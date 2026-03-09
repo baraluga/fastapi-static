@@ -1,6 +1,6 @@
 # File Browser
 
-A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, search files, upload files (button or drag-and-drop), create folders, rename items, and download files or folders as zip archives. No authentication, no build step.
+A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, and download files or folders as zip archives. No authentication, no build step.
 
 ## Getting Started
 
@@ -21,7 +21,8 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 
 - Browse directories with breadcrumb navigation
 - Live search with debouncing (finds files and folders by name)
-- Upload files via button or drag-and-drop with progress bar
+- Upload files and folders via button or drag-and-drop with progress bar
+- Folder uploads preserve directory structure and merge on conflict
 - Download individual files or entire folders as zip
 - Create new folders
 - Rename files and folders inline
@@ -37,7 +38,7 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 | `GET` | `/api/search?query=name` | Search files/folders by name (case-insensitive) |
 | `GET` | `/api/download?path=/file.txt` | Download a file |
 | `GET` | `/api/download-zip?path=/dir` | Download a directory as zip |
-| `POST` | `/api/upload?path=/` | Upload a file (multipart form) |
+| `POST` | `/api/upload?path=/&relative_path=folder/file.txt` | Upload a file (supports folder structure via relative_path) |
 | `POST` | `/api/create-folder?path=/&name=new` | Create a new folder |
 | `POST` | `/api/rename?path=/old&new_name=new` | Rename a file or folder |
 
@@ -47,7 +48,7 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 python3 -m pytest test_main.py -v
 ```
 
-34 tests covering all endpoints, path traversal protection, filename sanitization, search functionality, and large file handling.
+43 tests covering all endpoints, path traversal protection, filename sanitization, folder uploads, search functionality, and large file handling.
 
 ## Deployment
 
@@ -59,10 +60,10 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs tests on every push 
 
 ```
 main.py            # FastAPI backend (7 endpoints, path helpers)
-test_main.py       # pytest test suite (34 tests)
+test_main.py       # pytest test suite (43 tests)
 static/
   index.html       # HTML shell + inline CSS + drag overlay + search UI
-  app.js           # Vanilla JS frontend (271 lines)
+  app.js           # Vanilla JS frontend (folder upload support)
 sandbox/           # Default root directory for development
 render.yaml        # Render deployment config
 requirements.txt   # Python dependencies
