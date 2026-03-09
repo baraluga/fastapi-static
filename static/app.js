@@ -1,5 +1,7 @@
 const app = document.getElementById("app");
 let currentPath = "/";
+let currentSearchQuery = "";
+let searchTimeout = null;
 
 function joinPath(base, name) {
   return (base === "/" ? "/" : base + "/") + name;
@@ -13,7 +15,15 @@ function breadcrumb(path) {
     built += "/" + p;
     html += `<span class="sep">/</span><a href="#" onclick="navigate('${built}');return false">${p}</a>`;
   }
-  html += `</div><div class="nav-actions">`;
+  html += `</div>`;
+  html += `<div class="search-container">`;
+  html += `<input type="text" class="search-input" placeholder="Search files..." `;
+  html += `oninput="handleSearchInput(event)" value="${currentSearchQuery}">`;
+  if (currentSearchQuery) {
+    html += `<span class="search-clear" onclick="clearSearch()">×</span>`;
+  }
+  html += `</div>`;
+  html += `<div class="nav-actions">`;
   html += `<button class="btn btn-secondary" onclick="createFolder()">New Folder</button>`;
   html += `<button class="btn btn-secondary" onclick="downloadZip('${path}')">Download zip</button>`;
   html += `<button class="btn" onclick="document.getElementById('fileInput').click()">Upload</button>`;
@@ -149,6 +159,69 @@ async function renameItem(itemPath, oldName, event) {
     const error = await res.json();
     alert(error.detail || "Failed to rename");
   }
+}
+
+function handleSearchInput(event) {
+  const query = event.target.value;
+  currentSearchQuery = query;
+
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  searchTimeout = setTimeout(() => {
+    searchFiles(query);
+  }, 300);
+}
+
+function clearSearch() {
+  currentSearchQuery = "";
+  navigate(currentPath);
+}
+
+async function searchFiles(query) {
+  if (!query.trim()) {
+    navigate(currentPath);
+    return;
+  }
+
+  app.innerHTML = `<div class="loading"><span class="spinner"></span></div>`;
+  const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+  if (!res.ok) {
+    app.innerHTML = `<div class="empty">Error searching files</div>`;
+    return;
+  }
+  const results = await res.json();
+  displaySearchResults(results, query);
+}
+
+function displaySearchResults(results, query) {
+  let html = breadcrumb(currentPath);
+  html += `<div class="search-results-header">Search results for: <strong>${query}</strong></div>`;
+
+  if (!results.length) {
+    app.innerHTML = html + `<div class="empty">No files found for: ${query}</div>`;
+    return;
+  }
+
+  html += "<ul>";
+  for (let i = 0; i < results.length; i++) {
+    const item = results[i];
+    const icon = item.is_dir ? "📁" : "📄";
+    const pathDisplay = item.parent_path === "/" ? "/" : item.parent_path;
+    html += `<li style="--i:${i}">`;
+    html += `<span class="icon">${icon}</span>`;
+    html += `<a href="#" onclick="navigateToParent('${item.parent_path}');return false">${item.name}</a>`;
+    html += `<span style="margin-left: 8px; font-size: 12px; color: #999;">${pathDisplay}</span>`;
+    html += `<span class="spacer"></span>`;
+    html += `</li>`;
+  }
+  app.innerHTML = html + "</ul>";
+}
+
+function navigateToParent(parentPath) {
+  currentSearchQuery = "";
+  navigate(parentPath);
 }
 
 navigate("/");
