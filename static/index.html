@@ -200,6 +200,34 @@
       text-align: center;
       line-height: 1.4;
     }
+
+    /* Drag and drop overlay */
+    .drag-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 122, 205, 0.05);
+      backdrop-filter: blur(2px);
+      border: 4px dashed #007acd;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .drag-overlay.active {
+      display: flex;
+    }
+    .drag-overlay-content {
+      font-size: 18px;
+      color: #007acd;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 16px 32px;
+      border-radius: 0;
+    }
   </style>
 </head>
 <body>
@@ -208,6 +236,9 @@
     <div id="app" class="card"></div>
     <input type="file" id="fileInput" style="display:none" multiple onchange="uploadFile()">
     <div class="disclaimer">Storage is ephemeral. Files will be lost after a period of inactivity.</div>
+  </div>
+  <div class="drag-overlay" id="dragOverlay">
+    <div class="drag-overlay-content">Drop files to upload</div>
   </div>
   <script src="app.js"></script>
 </body>

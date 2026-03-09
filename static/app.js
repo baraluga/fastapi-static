@@ -144,3 +144,61 @@ async function renameItem(itemPath, oldName, event) {
 }
 
 navigate("/");
+
+// Drag and drop support
+let dragDepth = 0;
+const dragOverlay = document.getElementById("dragOverlay");
+
+document.addEventListener("dragenter", (e) => {
+  e.preventDefault();
+  dragDepth++;
+  if (dragDepth === 1) {
+    dragOverlay.classList.add("active");
+  }
+});
+
+document.addEventListener("dragleave", (e) => {
+  e.preventDefault();
+  dragDepth--;
+  if (dragDepth === 0) {
+    dragOverlay.classList.remove("active");
+  }
+});
+
+document.addEventListener("dragover", (e) => {
+  e.preventDefault();
+});
+
+document.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  dragOverlay.classList.remove("active");
+
+  const files = Array.from(e.dataTransfer.files);
+  if (!files.length) return;
+
+  // Filter out directories (only upload files)
+  const actualFiles = files.filter(f => f.size > 0 || f.type !== "");
+
+  if (!actualFiles.length) {
+    alert("No files to upload. Folder upload is not supported via drag and drop.");
+    return;
+  }
+
+  const failed = [];
+  const total = actualFiles.length;
+  for (let i = 0; i < total; i++) {
+    const label = total > 1
+      ? `Uploading ${i + 1}/${total}: ${actualFiles[i].name}`
+      : `Uploading ${actualFiles[i].name}`;
+    showProgress(label);
+    updateProgress(0);
+    const ok = await uploadOneFile(actualFiles[i], currentPath);
+    if (!ok) failed.push(actualFiles[i].name);
+  }
+  hideProgress();
+  if (failed.length) {
+    alert(`Failed to upload: ${failed.join(", ")}`);
+  }
+  navigate(currentPath);
+});
