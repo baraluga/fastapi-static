@@ -1,6 +1,10 @@
 const app = document.getElementById("app");
 let currentPath = "/";
 
+function joinPath(base, name) {
+  return (base === "/" ? "/" : base + "/") + name;
+}
+
 function breadcrumb(path) {
   const parts = path.split("/").filter(Boolean);
   let html = `<nav><div class="breadcrumbs"><a href="#" onclick="navigate('/');return false">root</a>`;
@@ -29,12 +33,12 @@ async function navigate(path) {
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     if (f.is_dir) {
-      const next = (path === "/" ? "/" : path + "/") + f.name;
+      const next = joinPath(path, f.name);
       html += `<li style="--i:${i}"><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
       html += `<span class="action-icon" onclick="renameItem('${next}', '${f.name}', event)" title="rename">✏️</span>`;
       html += `<span class="spacer"></span><span class="action-icon download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
     } else {
-      const filePath = (path === "/" ? "/" : path + "/") + f.name;
+      const filePath = joinPath(path, f.name);
       html += `<li class="file" style="--i:${i}"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
       html += `<span class="action-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span><span class="spacer"></span></li>`;
     }
@@ -87,10 +91,7 @@ function hideProgress() {
   if (el) el.remove();
 }
 
-async function uploadFile() {
-  const input = document.getElementById("fileInput");
-  const files = Array.from(input.files);
-  if (!files.length) return;
+async function uploadFiles(files) {
   const failed = [];
   const total = files.length;
   for (let i = 0; i < total; i++) {
@@ -107,6 +108,13 @@ async function uploadFile() {
     alert(`Failed to upload: ${failed.join(", ")}`);
   }
   navigate(currentPath);
+}
+
+async function uploadFile() {
+  const input = document.getElementById("fileInput");
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  await uploadFiles(files);
   input.value = "";
 }
 
@@ -185,20 +193,5 @@ document.addEventListener("drop", async (e) => {
     return;
   }
 
-  const failed = [];
-  const total = actualFiles.length;
-  for (let i = 0; i < total; i++) {
-    const label = total > 1
-      ? `Uploading ${i + 1}/${total}: ${actualFiles[i].name}`
-      : `Uploading ${actualFiles[i].name}`;
-    showProgress(label);
-    updateProgress(0);
-    const ok = await uploadOneFile(actualFiles[i], currentPath);
-    if (!ok) failed.push(actualFiles[i].name);
-  }
-  hideProgress();
-  if (failed.length) {
-    alert(`Failed to upload: ${failed.join(", ")}`);
-  }
-  navigate(currentPath);
+  await uploadFiles(actualFiles);
 });
