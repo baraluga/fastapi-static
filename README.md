@@ -1,6 +1,6 @@
 # File Browser
 
-A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, and download files or folders as zip archives. No authentication, no build step.
+A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, delete files/folders, and download files or folders as zip archives. No authentication, no build step.
 
 ## Getting Started
 
@@ -26,6 +26,7 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 - Download individual files or entire folders as zip
 - Create new folders
 - Rename files and folders inline
+- Delete files and folders with confirmation (recursive for folders)
 - Animated UI with loading states and drag overlay
 - Streaming uploads and zip downloads for large files
 - Request logging on all endpoints
@@ -41,6 +42,7 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 | `POST` | `/api/upload?path=/&relative_path=folder/file.txt` | Upload a file (supports folder structure via relative_path) |
 | `POST` | `/api/create-folder?path=/&name=new` | Create a new folder |
 | `POST` | `/api/rename?path=/old&new_name=new` | Rename a file or folder |
+| `POST` | `/api/delete?path=/item` | Delete a file or folder (recursive for folders) |
 
 ## Testing
 
@@ -48,7 +50,7 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 python3 -m pytest test_main.py -v
 ```
 
-43 tests covering all endpoints, path traversal protection, filename sanitization, folder uploads, search functionality, and large file handling.
+49 tests covering all endpoints, path traversal protection, filename sanitization, folder uploads, search functionality, recursive folder deletion, and large file handling.
 
 ## Deployment
 
@@ -59,11 +61,11 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs tests on every push 
 ## Project Structure
 
 ```
-main.py            # FastAPI backend (7 endpoints, path helpers)
-test_main.py       # pytest test suite (43 tests)
+main.py            # FastAPI backend (8 endpoints, path helpers)
+test_main.py       # pytest test suite (49 tests)
 static/
   index.html       # HTML shell + inline CSS + drag overlay + search UI
-  app.js           # Vanilla JS frontend (folder upload support)
+  app.js           # Vanilla JS frontend (folder upload, delete with confirmation)
 sandbox/           # Default root directory for development
 render.yaml        # Render deployment config
 requirements.txt   # Python dependencies
