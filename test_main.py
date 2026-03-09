@@ -213,6 +213,49 @@ def test_rename_sanitizes_name(client):
     assert ".." not in res.json()["new_name"]
 
 
+# --- POST /api/delete ---
+
+
+def test_delete_file(client, tmp_path):
+    res = client.post("/api/delete?path=/hello.txt")
+    assert res.status_code == 200
+    assert res.json()["status"] == "success"
+    assert not (tmp_path / "hello.txt").exists()
+
+
+def test_delete_folder(client, tmp_path):
+    # Create an empty folder
+    (tmp_path / "empty").mkdir()
+    res = client.post("/api/delete?path=/empty")
+    assert res.status_code == 200
+    assert res.json()["status"] == "success"
+    assert not (tmp_path / "empty").exists()
+
+
+def test_delete_folder_with_contents(client, tmp_path):
+    # Delete folder with nested content (recursive)
+    res = client.post("/api/delete?path=/subdir")
+    assert res.status_code == 200
+    assert res.json()["status"] == "success"
+    assert not (tmp_path / "subdir").exists()
+    assert not (tmp_path / "subdir" / "nested.txt").exists()
+
+
+def test_delete_nonexistent(client):
+    res = client.post("/api/delete?path=/nonexistent.txt")
+    assert res.status_code == 400
+
+
+def test_delete_path_traversal(client):
+    res = client.post("/api/delete?path=/../../etc/passwd")
+    assert res.status_code == 400
+
+
+def test_delete_root(client):
+    res = client.post("/api/delete?path=/")
+    assert res.status_code == 400
+
+
 # --- GET /api/search ---
 
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -191,6 +192,21 @@ def rename_item(path: str = Query(...), new_name: str = Query(...)):
     target.rename(new_path)
     log.info("RENAME %s -> %s", path, new_name_sanitized)
     return {"status": "success", "new_name": new_name_sanitized}
+
+
+@app.post("/api/delete")
+def delete_item(path: str = Query(...)):
+    target = validate_path(path)
+    # Prevent deleting the root directory itself
+    if target == ROOT_DIR:
+        raise HTTPException(400, "Cannot delete root directory")
+    if target.is_file():
+        target.unlink()
+        log.info("DELETE FILE %s", path)
+    else:
+        shutil.rmtree(target)
+        log.info("DELETE DIR %s", path)
+    return {"status": "success"}
 
 
 @app.get("/api/search")

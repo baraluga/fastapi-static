@@ -53,11 +53,14 @@ async function navigate(path) {
       const next = joinPath(path, f.name);
       html += `<li style="--i:${i}"><span class="icon">📁</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
       html += `<span class="action-icon" onclick="renameItem('${next}', '${f.name}', event)" title="rename">✏️</span>`;
+      html += `<span class="action-icon" onclick="deleteItem('${next}', '${f.name}', true, event)" title="delete">🗑️</span>`;
       html += `<span class="spacer"></span><span class="action-icon download-icon" onclick="downloadZip('${next}')" title="download as zip">📥</span></li>`;
     } else {
       const filePath = joinPath(path, f.name);
       html += `<li class="file" style="--i:${i}"><span class="icon">📄</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
-      html += `<span class="action-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span><span class="spacer"></span></li>`;
+      html += `<span class="action-icon" onclick="renameItem('${filePath}', '${f.name}', event)" title="rename">✏️</span>`;
+      html += `<span class="action-icon" onclick="deleteItem('${filePath}', '${f.name}', false, event)" title="delete">🗑️</span>`;
+      html += `<span class="spacer"></span></li>`;
     }
   }
   app.innerHTML = html + "</ul>";
@@ -197,6 +200,24 @@ async function renameItem(itemPath, oldName, event) {
   } else {
     const error = await res.json();
     alert(error.detail || "Failed to rename");
+  }
+}
+
+async function deleteItem(itemPath, name, isDir, event) {
+  event.stopPropagation();
+  const message = isDir
+    ? `Delete folder '${name}' and all its contents? This cannot be undone.`
+    : `Delete '${name}'? This cannot be undone.`;
+  const ok = confirm(message);
+  if (!ok) return;
+  const res = await fetch(`/api/delete?path=${encodeURIComponent(itemPath)}`, {
+    method: "POST",
+  });
+  if (res.ok) {
+    navigate(currentPath);
+  } else {
+    const error = await res.json();
+    alert(error.detail || "Failed to delete");
   }
 }
 

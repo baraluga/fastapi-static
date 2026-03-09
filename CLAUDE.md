@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A minimal file browser built with FastAPI (backend) and vanilla JS (frontend). Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, download files/folders as zip. No auth.
+A minimal file browser built with FastAPI (backend) and vanilla JS (frontend). Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, delete files/folders, download files/folders as zip. No auth.
 
 ## Development
 
@@ -26,13 +26,14 @@ curl -X POST 'http://127.0.0.1:8000/api/upload?path=/' -F 'file=@test.txt'
 curl -X POST 'http://127.0.0.1:8000/api/upload?path=/&relative_path=folder/test.txt' -F 'file=@test.txt'
 curl -X POST 'http://127.0.0.1:8000/api/create-folder?path=/&name=new-folder'
 curl -X POST 'http://127.0.0.1:8000/api/rename?path=/old-name&new_name=new-name'
+curl -X POST 'http://127.0.0.1:8000/api/delete?path=/file-or-folder'
 ```
 
 The app serves at http://127.0.0.1:8000.
 
 ## Architecture
 
-**Backend (main.py)** — FastAPI app with 7 endpoints:
+**Backend (main.py)** — FastAPI app with 8 endpoints:
 - `GET /api/files?path=/` — list files/folders, returns `{name, is_dir}[]`
 - `GET /api/search?query=` — search files/folders by name (case-insensitive, limit 50)
 - `GET /api/download?path=` — download individual file
@@ -40,6 +41,7 @@ The app serves at http://127.0.0.1:8000.
 - `POST /api/upload?path=/&relative_path=folder/file.txt` — upload file(s) to directory (chunked, 1MB), optional relative_path for folder uploads
 - `POST /api/create-folder?path=&name=` — create a new folder
 - `POST /api/rename?path=&new_name=` — rename a file or folder
+- `POST /api/delete?path=` — delete a file or folder (recursive for folders)
 - Shared helpers: `sanitize_name()` for filename validation, `validate_path()` for security-critical path validation, `to_relative_path()` for consistent path formatting
 - Request logging on all endpoints via Python `logging`
 - Mounts `static/` at root with `html=True`
@@ -52,12 +54,12 @@ The app serves at http://127.0.0.1:8000.
 - Multi-file upload via XHR with progress bar (0-95% upload, "Processing..." server write, 100% confirmed)
 - Folder upload support via button (webkitdirectory) and drag-and-drop (FileSystemEntry API)
 - Drag-and-drop upload support with full-page drop zone and visual indicator (supports files and folders)
-- Inline rename via hover icons, folder creation via nav button
+- Inline rename and delete via hover icons (🗑️), folder creation via nav button, confirmation dialog before deletion
 - Staggered list animations, loading spinner, ephemeral storage disclaimer
 
 **Testing:**
-- **test_main.py** — 43 tests using pytest + FastAPI TestClient
-- Covers all endpoints, path traversal, sanitization, large file upload, folder upload with relative paths, search functionality
+- **test_main.py** — 49 tests using pytest + FastAPI TestClient
+- Covers all endpoints, path traversal, sanitization, large file upload, folder upload with relative paths, search functionality, recursive folder deletion
 
 **CI/CD:**
 - **GitHub Actions** — `.github/workflows/ci.yml` runs pytest on push/PR
