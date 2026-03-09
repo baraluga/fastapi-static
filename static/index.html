@@ -1,408 +1,504 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File Browser</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #fff;
-      color: #1a1a1a;
-      margin: 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Browser</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: #fff;
+        color: #1a1a1a;
+        margin: 0;
+      }
 
-    /* Layout wrapper */
-    .layout-wrapper {
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* Sidebar */
-    .sidebar {
-      width: 280px;
-      background: #fff;
-      border-right: 1px solid #eef1f5;
-      padding: 32px 20px;
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-    .sidebar h2 {
-      font-size: 18px;
-      font-weight: 700;
-      color: #007acd;
-      margin-bottom: 20px;
-      letter-spacing: -0.3px;
-    }
-    .feature-list {
-      list-style: none;
-      padding: 0;
-      margin: 0 0 32px 0;
-    }
-    .feature-list li {
-      padding: 10px 0;
-      font-size: 14px;
-      color: #1a1a1a;
-      line-height: 1.5;
-      border-bottom: 1px solid #f0f2f5;
-    }
-    .feature-list li:last-child {
-      border-bottom: none;
-    }
-    .sidebar-footer {
-      padding-top: 16px;
-      border-top: 1px solid #eef1f5;
-      font-size: 12px;
-      color: #999;
-    }
-    .sidebar-footer p {
-      margin: 8px 0;
-    }
-    .sidebar-footer a {
-      color: #007acd;
-      text-decoration: none;
-    }
-    .sidebar-footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* Main content area */
-    .main-content {
-      flex: 1;
-      overflow-y: auto;
-      background: linear-gradient(135deg, #f5f7fa 0%, #e8edf3 100%);
-    }
-    .shell { max-width: 720px; margin: 0 auto; padding: 48px 16px; }
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      color: #007acd;
-      letter-spacing: -0.3px;
-    }
-    .card {
-      background: #fff;
-      border-radius: 0;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06);
-      overflow: hidden;
-      transition: box-shadow 0.3s ease;
-    }
-    .card:hover {
-      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 12px 32px rgba(0,0,0,.09);
-    }
-
-    /* Nav / Breadcrumbs */
-    nav {
-      padding: 12px 16px;
-      border-bottom: 1px solid #eef1f5;
-      font-size: 13px;
-      color: #666;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      background: #fafbfc;
-    }
-    .breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; min-width: 0; }
-    .breadcrumbs a {
-      color: #007acd;
-      text-decoration: none;
-      padding: 2px 6px;
-      transition: background 0.2s, color 0.2s;
-    }
-    .breadcrumbs a:hover { background: rgba(0,122,205,.08); }
-    .breadcrumbs a:last-child { font-weight: 600; color: #005a9c; }
-    .breadcrumbs .sep { margin: 0 1px; color: #c0c8d0; font-size: 11px; user-select: none; }
-    .nav-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
-
-    /* Search */
-    .search-container {
-      position: relative;
-      display: flex;
-      align-items: center;
-      flex-shrink: 0;
-    }
-    .search-input {
-      width: 200px;
-      padding: 5px 28px 5px 10px;
-      border: 1px solid #d8dfe6;
-      border-radius: 0;
-      font-size: 12px;
-      outline: none;
-      transition: all 0.2s ease;
-      background: #fff;
-    }
-    .search-input:focus {
-      border-color: #007acd;
-      box-shadow: 0 0 0 2px rgba(0,122,205,.1);
-    }
-    .search-clear {
-      position: absolute;
-      right: 8px;
-      cursor: pointer;
-      color: #999;
-      font-size: 16px;
-      font-weight: bold;
-      line-height: 1;
-      padding: 2px 4px;
-      transition: color 0.2s;
-    }
-    .search-clear:hover { color: #007acd; }
-    .search-results-header {
-      padding: 12px 16px;
-      background: #f4f8fc;
-      border-bottom: 1px solid #e0e4e8;
-      font-size: 13px;
-      color: #666;
-      font-weight: 500;
-    }
-    .search-results-header strong { color: #007acd; }
-
-    /* Buttons */
-    .btn {
-      background: #007acd;
-      color: #fff;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 0;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-    }
-    .btn:hover { background: #005a9c; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,122,205,.3); }
-    .btn:active { transform: translateY(0); box-shadow: none; }
-    .btn-secondary {
-      background: transparent;
-      color: #007acd;
-      border: 1px solid #d8dfe6;
-    }
-    .btn-secondary:hover { background: rgba(0,122,205,.06); border-color: #007acd; box-shadow: 0 2px 8px rgba(0,122,205,.12); }
-    .btn-sm {
-      padding: 5px 10px;
-      font-size: 11px;
-    }
-
-    /* Content actions */
-    .content-actions {
-      padding: 10px 16px;
-      border-bottom: 1px solid #eef1f5;
-      background: #fafbfc;
-    }
-
-    /* File list */
-    ul { list-style: none; }
-    li {
-      padding: 0 16px 0 24px;
-      border-bottom: 1px solid #f0f2f5;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      position: relative;
-      transition: background 0.15s ease;
-      height: 44px;
-      animation: fadeSlideIn 0.3s ease both;
-      animation-delay: calc(var(--i, 0) * 0.04s);
-    }
-    li:last-child { border-bottom: none; }
-    li:hover { background: #f4f8fc; }
-    li::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: #007acd;
-      border-radius: 0;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
-    li:hover::before { opacity: 1; }
-    li a {
-      color: #1a1a1a;
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.15s;
-    }
-    li a:hover { color: #007acd; }
-    li.file a { font-weight: 400; color: #444; }
-    li.file a:hover { color: #007acd; }
-    .icon { font-size: 16px; flex-shrink: 0; }
-    .spacer { flex: 1; }
-
-    /* Action icons */
-    .action-icon {
-      cursor: pointer;
-      font-size: 12px;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      padding: 4px;
-    }
-    li:hover .action-icon { opacity: 0.5; }
-    .action-icon:hover { opacity: 1 !important; }
-    .download-icon { opacity: 0.5; font-size: 12px; }
-    li:hover .download-icon { opacity: 0.7; }
-    .download-icon:hover { opacity: 1 !important; }
-
-    /* Empty & loading states */
-    .empty {
-      padding: 48px 16px;
-      text-align: center;
-      color: #999;
-      font-size: 14px;
-    }
-    .loading {
-      padding: 48px 16px;
-      text-align: center;
-      color: #999;
-      font-size: 14px;
-    }
-    .spinner {
-      display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 2px solid #e0e4e8;
-      border-top-color: #007acd;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-
-    /* Upload progress */
-    .upload-progress {
-      padding: 12px 16px;
-      border-bottom: 1px solid #eef1f5;
-      background: #fafbfc;
-    }
-    .upload-progress-label {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 6px;
-    }
-    .upload-progress-track {
-      height: 3px;
-      background: #e0e4e8;
-      overflow: hidden;
-    }
-    .upload-progress-bar {
-      height: 100%;
-      background: #007acd;
-      width: 0%;
-      transition: width 0.2s ease;
-    }
-
-    /* Animations */
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    @keyframes cardEnter {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .card { animation: cardEnter 0.4s ease; }
-    .disclaimer {
-      margin-top: 12px;
-      padding: 10px 14px;
-      font-size: 12px;
-      color: #888;
-      text-align: center;
-      line-height: 1.4;
-    }
-
-    /* Drag and drop overlay */
-    .drag-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 122, 205, 0.05);
-      backdrop-filter: blur(2px);
-      border: 4px dashed #007acd;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      pointer-events: none;
-    }
-    .drag-overlay.active {
-      display: flex;
-    }
-    .drag-overlay-content {
-      font-size: 18px;
-      color: #007acd;
-      font-weight: 600;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 16px 32px;
-      border-radius: 0;
-    }
-
-    /* Responsive: sidebar stacks on top for mobile */
-    @media (max-width: 768px) {
+      /* Layout wrapper */
       .layout-wrapper {
-        flex-direction: column;
+        display: flex;
+        min-height: 100vh;
       }
-      .sidebar {
-        width: 100%;
-        border-right: none;
-        border-bottom: 1px solid #eef1f5;
-        padding: 20px 16px;
-      }
-      .shell {
-        padding: 24px 12px;
-      }
-    }
 
-    @media (max-width: 480px) {
+      /* Sidebar */
+      .sidebar {
+        width: 280px;
+        background: #fff;
+        border-right: 1px solid #eef1f5;
+        padding: 32px 20px;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+      .sidebar h2 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #007acd;
+        margin-bottom: 20px;
+        letter-spacing: -0.3px;
+      }
+      .feature-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 32px 0;
+      }
+      .feature-list li {
+        padding: 10px 0;
+        font-size: 14px;
+        color: #1a1a1a;
+        line-height: 1.5;
+        border-bottom: 1px solid #f0f2f5;
+      }
+      .feature-list li:last-child {
+        border-bottom: none;
+      }
+      .sidebar-footer {
+        padding-top: 16px;
+        border-top: 1px solid #eef1f5;
+        font-size: 12px;
+        color: #999;
+      }
+      .sidebar-footer p {
+        margin: 8px 0;
+      }
+      .sidebar-footer a {
+        color: #007acd;
+        text-decoration: none;
+      }
+      .sidebar-footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* Main content area */
+      .main-content {
+        flex: 1;
+        overflow-y: auto;
+        background: linear-gradient(135deg, #f5f7fa 0%, #e8edf3 100%);
+      }
       .shell {
-        padding: 16px 8px;
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 48px 16px;
+      }
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: #007acd;
+        letter-spacing: -0.3px;
+      }
+      .card {
+        background: #fff;
+        border-radius: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
+          0 8px 24px rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        transition: box-shadow 0.3s ease;
+      }
+      .card:hover {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08),
+          0 12px 32px rgba(0, 0, 0, 0.09);
+      }
+
+      /* Nav / Breadcrumbs */
+      nav {
+        padding: 12px 16px;
+        border-bottom: 1px solid #eef1f5;
+        font-size: 13px;
+        color: #666;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        background: #fafbfc;
+      }
+      .breadcrumbs {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2px;
+        min-width: 0;
+      }
+      .breadcrumbs a {
+        color: #007acd;
+        text-decoration: none;
+        padding: 2px 6px;
+        transition: background 0.2s, color 0.2s;
+      }
+      .breadcrumbs a:hover {
+        background: rgba(0, 122, 205, 0.08);
+      }
+      .breadcrumbs a:last-child {
+        font-weight: 600;
+        color: #005a9c;
+      }
+      .breadcrumbs .sep {
+        margin: 0 1px;
+        color: #c0c8d0;
+        font-size: 11px;
+        user-select: none;
+      }
+      .nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+
+      /* Search */
+      .search-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
       }
       .search-input {
-        width: 150px;
+        width: 200px;
+        padding: 5px 28px 5px 10px;
+        border: 1px solid #d8dfe6;
+        border-radius: 0;
+        font-size: 12px;
+        outline: none;
+        transition: all 0.2s ease;
+        background: #fff;
       }
-    }
-  </style>
-</head>
-<body>
-  <div class="layout-wrapper">
-    <aside class="sidebar">
-      <h2>Features</h2>
-      <ul class="feature-list">
-        <li>📂 Browse directories with breadcrumb navigation</li>
-        <li>🔍 Live search with debouncing</li>
-        <li>📤 Upload files via button or drag-and-drop</li>
-        <li>📁 Upload folders (preserves structure)</li>
-        <li>✏️ Rename files and folders inline</li>
-        <li>🗑️ Delete with confirmation (recursive)</li>
-        <li>📥 Download files or folders as zip</li>
-        <li>➕ Create new folders</li>
-        <li>🎨 Animated UI with loading states</li>
-      </ul>
-      <div class="sidebar-footer">
-        <p>Built with FastAPI + Vanilla JS</p>
-        <p><a href="https://github.com/baraluga/fastapi-static" target="_blank">View on GitHub</a></p>
-      </div>
-    </aside>
-    <main class="main-content">
-      <div class="shell">
-        <h1>File Browser</h1>
-        <div id="app" class="card"></div>
-        <input type="file" id="fileInput" style="display:none" multiple onchange="uploadFile()">
-        <input type="file" id="folderInput" style="display:none" webkitdirectory onchange="uploadFolder()">
-        <div class="disclaimer">Storage is ephemeral. Files will be lost after a period of inactivity.</div>
-      </div>
-    </main>
-  </div>
-  <div class="drag-overlay" id="dragOverlay">
-    <div class="drag-overlay-content">Drop files or folders to upload</div>
-  </div>
-  <script src="app.js"></script>
-</body>
+      .search-input:focus {
+        border-color: #007acd;
+        box-shadow: 0 0 0 2px rgba(0, 122, 205, 0.1);
+      }
+      .search-clear {
+        position: absolute;
+        right: 8px;
+        cursor: pointer;
+        color: #999;
+        font-size: 16px;
+        font-weight: bold;
+        line-height: 1;
+        padding: 2px 4px;
+        transition: color 0.2s;
+      }
+      .search-clear:hover {
+        color: #007acd;
+      }
+      .search-results-header {
+        padding: 12px 16px;
+        background: #f4f8fc;
+        border-bottom: 1px solid #e0e4e8;
+        font-size: 13px;
+        color: #666;
+        font-weight: 500;
+      }
+      .search-results-header strong {
+        color: #007acd;
+      }
+
+      /* Buttons */
+      .btn {
+        background: #007acd;
+        color: #fff;
+        border: none;
+        padding: 6px 14px;
+        border-radius: 0;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: #005a9c;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 122, 205, 0.3);
+      }
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      .btn-secondary {
+        background: transparent;
+        color: #007acd;
+        border: 1px solid #d8dfe6;
+      }
+      .btn-secondary:hover {
+        background: rgba(0, 122, 205, 0.06);
+        border-color: #007acd;
+        box-shadow: 0 2px 8px rgba(0, 122, 205, 0.12);
+      }
+      .btn-sm {
+        padding: 5px 10px;
+        font-size: 11px;
+      }
+
+      /* Content actions */
+      .content-actions {
+        padding: 10px 16px;
+        border-bottom: 1px solid #eef1f5;
+        background: #fafbfc;
+      }
+
+      /* File list */
+      ul {
+        list-style: none;
+      }
+      li {
+        padding: 0 16px 0 24px;
+        border-bottom: 1px solid #f0f2f5;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        position: relative;
+        transition: background 0.15s ease;
+        height: 44px;
+        animation: fadeSlideIn 0.3s ease both;
+        animation-delay: calc(var(--i, 0) * 0.04s);
+      }
+      li:last-child {
+        border-bottom: none;
+      }
+      li a {
+        color: #1a1a1a;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.15s;
+      }
+      li a:hover {
+        color: #007acd;
+      }
+      li.file a {
+        font-weight: 400;
+        color: #444;
+      }
+      li.file a:hover {
+        color: #007acd;
+      }
+      .icon {
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      .spacer {
+        flex: 1;
+      }
+
+      /* Action icons */
+      .action-icon {
+        cursor: pointer;
+        font-size: 12px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        padding: 4px;
+      }
+      li:hover .action-icon {
+        opacity: 0.5;
+      }
+      .action-icon:hover {
+        opacity: 1 !important;
+      }
+      .download-icon {
+        opacity: 0.5;
+        font-size: 12px;
+      }
+      li:hover .download-icon {
+        opacity: 0.7;
+      }
+      .download-icon:hover {
+        opacity: 1 !important;
+      }
+
+      /* Empty & loading states */
+      .empty {
+        padding: 48px 16px;
+        text-align: center;
+        color: #999;
+        font-size: 14px;
+      }
+      .loading {
+        padding: 48px 16px;
+        text-align: center;
+        color: #999;
+        font-size: 14px;
+      }
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #e0e4e8;
+        border-top-color: #007acd;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+      }
+
+      /* Upload progress */
+      .upload-progress {
+        padding: 12px 16px;
+        border-bottom: 1px solid #eef1f5;
+        background: #fafbfc;
+      }
+      .upload-progress-label {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 6px;
+      }
+      .upload-progress-track {
+        height: 3px;
+        background: #e0e4e8;
+        overflow: hidden;
+      }
+      .upload-progress-bar {
+        height: 100%;
+        background: #007acd;
+        width: 0%;
+        transition: width 0.2s ease;
+      }
+
+      /* Animations */
+      @keyframes fadeSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes cardEnter {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .card {
+        animation: cardEnter 0.4s ease;
+      }
+      .disclaimer {
+        margin-top: 12px;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #888;
+        text-align: center;
+        line-height: 1.4;
+      }
+
+      /* Drag and drop overlay */
+      .drag-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 122, 205, 0.05);
+        backdrop-filter: blur(2px);
+        border: 4px dashed #007acd;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        pointer-events: none;
+      }
+      .drag-overlay.active {
+        display: flex;
+      }
+      .drag-overlay-content {
+        font-size: 18px;
+        color: #007acd;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 16px 32px;
+        border-radius: 0;
+      }
+
+      /* Responsive: sidebar stacks on top for mobile */
+      @media (max-width: 768px) {
+        .layout-wrapper {
+          flex-direction: column;
+        }
+        .sidebar {
+          width: 100%;
+          border-right: none;
+          border-bottom: 1px solid #eef1f5;
+          padding: 20px 16px;
+        }
+        .shell {
+          padding: 24px 12px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .shell {
+          padding: 16px 8px;
+        }
+        .search-input {
+          width: 150px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout-wrapper">
+      <aside class="sidebar">
+        <h2>Features</h2>
+        <ul class="feature-list">
+          <li>📂 Browse directories with breadcrumb navigation</li>
+          <li>🔍 Live search with debouncing</li>
+          <li>📤 Upload files via button or drag-and-drop</li>
+          <li>📁 Upload folders (preserves structure)</li>
+          <li>✏️ Rename files and folders inline</li>
+          <li>🗑️ Delete with confirmation (recursive)</li>
+          <li>📥 Download files or folders as zip</li>
+          <li>➕ Create new folders</li>
+          <li>🎨 Animated UI with loading states</li>
+        </ul>
+        <div class="sidebar-footer">
+          <p>Built with FastAPI + Vanilla JS</p>
+          <p>
+            <a href="https://github.com/baraluga/fastapi-static" target="_blank"
+              >View on GitHub</a
+            >
+          </p>
+        </div>
+      </aside>
+      <main class="main-content">
+        <div class="shell">
+          <h1>File Browser</h1>
+          <div id="app" class="card"></div>
+          <input
+            type="file"
+            id="fileInput"
+            style="display: none"
+            multiple
+            onchange="uploadFile()"
+          />
+          <input
+            type="file"
+            id="folderInput"
+            style="display: none"
+            webkitdirectory
+            onchange="uploadFolder()"
+          />
+          <div class="disclaimer">
+            Storage is ephemeral. Files will be lost after a period of
+            inactivity.
+          </div>
+        </div>
+      </main>
+    </div>
+    <div class="drag-overlay" id="dragOverlay">
+      <div class="drag-overlay-content">Drop files or folders to upload</div>
+    </div>
+    <script src="app.js"></script>
+  </body>
 </html>
