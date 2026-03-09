@@ -80,17 +80,63 @@ def download_file(path: str = Query(...)):
 
 
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...), path: str = Query("/")):
-    filename = sanitize_name(file.filename)
+async def upload_file(
+    file: UploadFile = File(...),
+    path: str = Query("/"),
+    relative_path: str = Query(None)
+):
     target_dir = validate_path(path, must_be_dir=True)
-    target_file = target_dir / filename
+
+    if relative_path:
+        # Split and sanitize each path component, filtering out invalid ones
+        path_parts = []
+        for part in relative_path.split("/"):
+            if part:  # Skip empty parts
+                # Manually sanitize to allow graceful handling of invalid components
+                sanitized = (
+                    part.replace("/", "")
+                    .replace("\\", "")
+                    .replace("..", "")
+                    .strip()
+                )
+                # Skip components that sanitize to empty or contain null bytes
+                if sanitized and "\x00" not in sanitized:
+                    path_parts.append(sanitized)
+
+        # Ensure we have at least one valid component
+        if not path_parts:
+            raise HTTPException(400, "Invalid relative path")
+
+        # Create nested directories (last part is filename)
+        if len(path_parts) > 1:
+            nested_dir = target_dir
+            for dir_part in path_parts[:-1]:
+                nested_dir = nested_dir / dir_part
+                nested_dir.mkdir(parents=True, exist_ok=True)
+            target_file = nested_dir / path_parts[-1]
+        else:
+            target_file = target_dir / path_parts[0]
+
+        result_filename = relative_path
+    else:
+        # Original behavior: use file.filename
+        filename = sanitize_name(file.filename)
+        target_file = target_dir / filename
+        result_filename = filename
+
+    # Security: validate final path is within ROOT_DIR
+    if not target_file.is_relative_to(ROOT_DIR):
+        raise HTTPException(400, "Invalid path")
+
+    # Chunked write logic
     size = 0
     with open(target_file, "wb") as f:
         while chunk := await file.read(1024 * 1024):
             f.write(chunk)
             size += len(chunk)
-    log.info("UPLOAD %s/%s (%d bytes)", path, filename, size)
-    return {"status": "success", "filename": filename}
+
+    log.info("UPLOAD %s/%s (%d bytes)", path, result_filename, size)
+    return {"status": "success", "filename": result_filename}
 
 
 @app.get("/api/download-zip")
