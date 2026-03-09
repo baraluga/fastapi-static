@@ -286,3 +286,111 @@ def test_search_result_limit(client, tmp_path):
     assert res.status_code == 200
     results = res.json()
     assert len(results) == 50  # Should be limited to 50
+
+
+# --- POST /api/upload with relative_path (folder upload) ---
+
+
+def test_upload_file_with_relative_path(client, tmp_path):
+    res = client.post(
+        "/api/upload?path=/&relative_path=myFolder/subdir/file.txt",
+        files={"file": ("file.txt", b"content", "text/plain")},
+    )
+    assert res.status_code == 200
+    assert res.json()["filename"] == "myFolder/subdir/file.txt"
+    assert (tmp_path / "myFolder" / "subdir" / "file.txt").read_text() == "content"
+
+
+def test_upload_with_deep_nesting(client, tmp_path):
+    res = client.post(
+        "/api/upload?path=/&relative_path=a/b/c/d/e/file.txt",
+        files={"file": ("file.txt", b"deep", "text/plain")},
+    )
+    assert res.status_code == 200
+    assert (tmp_path / "a" / "b" / "c" / "d" / "e" / "file.txt").read_text() == "deep"
+
+
+def test_upload_merge_on_conflict(client, tmp_path):
+    # Create existing folder with file
+    (tmp_path / "folder").mkdir()
+    (tmp_path / "folder" / "old.txt").write_text("old")
+
+    # Upload new file to same folder
+    res = client.post(
+        "/api/upload?path=/&relative_path=folder/new.txt",
+        files={"file": ("new.txt", b"new", "text/plain")},
+    )
+    assert res.status_code == 200
+    assert (tmp_path / "folder" / "new.txt").read_text() == "new"
+    assert (tmp_path / "folder" / "old.txt").read_text() == "old"  # Old file preserved
+
+
+def test_upload_relative_path_sanitization(client, tmp_path):
+    # Each component should be sanitized individually
+    res = client.post(
+        "/api/upload?path=/&relative_path=folder../sub..dir/file.txt",
+        files={"file": ("file.txt", b"content", "text/plain")},
+    )
+    assert res.status_code == 200
+    # ".." should be stripped from each component
+    assert (tmp_path / "folder" / "subdir" / "file.txt").exists()
+
+
+def test_upload_relative_path_traversal_blocked(client, tmp_path):
+    # Attempt path traversal with relative_path
+    res = client.post(
+        "/api/upload?path=/&relative_path=../../../etc/passwd",
+        files={"file": ("passwd", b"evil", "text/plain")},
+    )
+    assert res.status_code == 200
+    # Should sanitize to "etc/passwd" within ROOT_DIR
+    assert (tmp_path / "etc" / "passwd").read_text() == "evil"
+    # Verify it's actually within ROOT_DIR
+    assert (tmp_path / "etc" / "passwd").is_relative_to(tmp_path)
+
+
+def test_upload_relative_path_empty_components(client, tmp_path):
+    # Malformed path with empty components
+    res = client.post(
+        "/api/upload?path=/&relative_path=folder//subdir///file.txt",
+        files={"file": ("file.txt", b"content", "text/plain")},
+    )
+    assert res.status_code == 200
+    # Empty components should be filtered out
+    assert (tmp_path / "folder" / "subdir" / "file.txt").read_text() == "content"
+
+
+def test_upload_multiple_files_to_nested_folder(client, tmp_path):
+    # Upload multiple files to the same nested folder
+    res1 = client.post(
+        "/api/upload?path=/&relative_path=project/src/file1.txt",
+        files={"file": ("file1.txt", b"content1", "text/plain")},
+    )
+    res2 = client.post(
+        "/api/upload?path=/&relative_path=project/src/file2.txt",
+        files={"file": ("file2.txt", b"content2", "text/plain")},
+    )
+    assert res1.status_code == 200
+    assert res2.status_code == 200
+    assert (tmp_path / "project" / "src" / "file1.txt").read_text() == "content1"
+    assert (tmp_path / "project" / "src" / "file2.txt").read_text() == "content2"
+
+
+def test_upload_relative_path_single_component(client, tmp_path):
+    # relative_path with single component (no folders)
+    res = client.post(
+        "/api/upload?path=/&relative_path=simple.txt",
+        files={"file": ("simple.txt", b"simple", "text/plain")},
+    )
+    assert res.status_code == 200
+    assert (tmp_path / "simple.txt").read_text() == "simple"
+
+
+def test_upload_relative_path_to_subdir(client, tmp_path):
+    # Upload with relative_path to an existing subdir
+    res = client.post(
+        "/api/upload?path=/subdir&relative_path=nested/file.txt",
+        files={"file": ("file.txt", b"in nested", "text/plain")},
+    )
+    assert res.status_code == 200
+    assert (tmp_path / "subdir" / "nested" / "file.txt").read_text() == "in nested"
