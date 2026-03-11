@@ -1,6 +1,6 @@
 # File Browser
 
-A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, delete files/folders, and download files or folders as zip archives. No authentication, no build step.
+A minimal, self-hosted file browser built with FastAPI and vanilla JavaScript. Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, delete files/folders (single or bulk), and download files or folders as zip archives (single or bulk). No authentication, no build step.
 
 ## Getting Started
 
@@ -23,10 +23,10 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 - Live search with debouncing (finds files and folders by name)
 - Upload files and folders via button or drag-and-drop with progress bar
 - Folder uploads preserve directory structure and merge on conflict
-- Download individual files or entire folders as zip
+- Download individual files or entire folders as zip, or bulk-download a selection as a single zip
 - Create new folders
 - Rename files and folders inline
-- Delete files and folders with confirmation (recursive for folders)
+- Delete files and folders with confirmation (recursive for folders); select multiple items for bulk delete
 - Animated UI with loading states and drag overlay
 - Streaming uploads and zip downloads for large files
 - Request logging on all endpoints
@@ -43,6 +43,8 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 | `POST` | `/api/create-folder?path=/&name=new` | Create a new folder |
 | `POST` | `/api/rename?path=/old&new_name=new` | Rename a file or folder |
 | `POST` | `/api/delete?path=/item` | Delete a file or folder (recursive for folders) |
+| `POST` | `/api/batch-delete` | Delete multiple files/folders; JSON body `{"paths":[...]}` (max 100) |
+| `POST` | `/api/batch-download-zip` | Download multiple files/folders as a single zip; JSON body `{"paths":[...]}` (max 100) |
 
 ## Testing
 
@@ -50,7 +52,7 @@ ROOT_DIR=/path/to/files python3 -m uvicorn main:app --reload
 python3 -m pytest test_main.py -v
 ```
 
-49 tests covering all endpoints, path traversal protection, filename sanitization, folder uploads, search functionality, recursive folder deletion, and large file handling.
+60 tests covering all endpoints, path traversal protection, filename sanitization, folder uploads, search functionality, recursive folder deletion, large file handling, and batch delete/download.
 
 ## Deployment
 
@@ -61,11 +63,11 @@ A GitHub Actions workflow (`.github/workflows/ci.yml`) runs tests on every push 
 ## Project Structure
 
 ```
-main.py            # FastAPI backend (8 endpoints, path helpers)
-test_main.py       # pytest test suite (49 tests)
+main.py            # FastAPI backend (10 endpoints, path helpers)
+test_main.py       # pytest test suite (60 tests)
 static/
   index.html       # HTML shell + inline CSS + drag overlay + search UI
-  app.js           # Vanilla JS frontend (folder upload, delete with confirmation)
+  app.js           # Vanilla JS frontend (multi-select, bulk delete/download, folder upload)
 sandbox/           # Default root directory for development
 render.yaml        # Render deployment config
 requirements.txt   # Python dependencies

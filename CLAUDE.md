@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A minimal file browser built with FastAPI (backend) and vanilla JS (frontend). Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, delete files/folders, download files/folders as zip. No auth.
+A minimal file browser built with FastAPI (backend) and vanilla JS (frontend). Browse directories, search files, upload files and folders (button or drag-and-drop), create folders, rename items, delete files/folders (single or bulk), download files/folders as zip (single or bulk). No auth.
 
 ## Development
 
@@ -33,7 +33,7 @@ The app serves at http://127.0.0.1:8000.
 
 ## Architecture
 
-**Backend (main.py)** — FastAPI app with 8 endpoints:
+**Backend (main.py)** — FastAPI app with 10 endpoints:
 - `GET /api/files?path=/` — list files/folders, returns `{name, is_dir}[]`
 - `GET /api/search?query=` — search files/folders by name (case-insensitive, limit 50)
 - `GET /api/download?path=` — download individual file
@@ -42,7 +42,10 @@ The app serves at http://127.0.0.1:8000.
 - `POST /api/create-folder?path=&name=` — create a new folder
 - `POST /api/rename?path=&new_name=` — rename a file or folder
 - `POST /api/delete?path=` — delete a file or folder (recursive for folders)
+- `POST /api/batch-delete` — delete multiple files/folders; JSON body `{paths: [...]}`, returns per-item results (max 100)
+- `POST /api/batch-download-zip` — download multiple files/folders as a single zip; JSON body `{paths: [...]}` (max 100)
 - Shared helpers: `sanitize_name()` for filename validation, `validate_path()` for security-critical path validation, `to_relative_path()` for consistent path formatting
+- `BatchPathsRequest` Pydantic model shared by both batch endpoints
 - Request logging on all endpoints via Python `logging`
 - Mounts `static/` at root with `html=True`
 - Reads from `ROOT_DIR` env var (defaults to `./sandbox`)
@@ -55,11 +58,13 @@ The app serves at http://127.0.0.1:8000.
 - Folder upload support via button (webkitdirectory) and drag-and-drop (FileSystemEntry API)
 - Drag-and-drop upload support with full-page drop zone and visual indicator (supports files and folders)
 - Inline rename and delete via hover icons (🗑️), folder creation via nav button, confirmation dialog before deletion
+- Multi-select: checkboxes appear on hover; once any item is selected all checkboxes stay visible; selection toolbar with bulk delete and bulk download-as-zip
+- `selectedPaths` Set tracks selection; clears on navigation (no cross-directory bulk ops)
 - Staggered list animations, loading spinner, ephemeral storage disclaimer
 
 **Testing:**
-- **test_main.py** — 49 tests using pytest + FastAPI TestClient
-- Covers all endpoints, path traversal, sanitization, large file upload, folder upload with relative paths, search functionality, recursive folder deletion
+- **test_main.py** — 60 tests using pytest + FastAPI TestClient
+- Covers all endpoints, path traversal, sanitization, large file upload, folder upload with relative paths, search functionality, recursive folder deletion, batch delete/download
 
 **CI/CD:**
 - **GitHub Actions** — `.github/workflows/ci.yml` runs pytest on push/PR

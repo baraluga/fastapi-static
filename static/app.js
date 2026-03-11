@@ -10,6 +10,7 @@ const app = document.getElementById("app");
 let currentPath = "/";
 let currentSearchQuery = "";
 let searchTimeout = null;
+let selectedPaths = new Set();
 
 function joinPath(base, name) {
   return (base === "/" ? "/" : base + "/") + name;
@@ -42,6 +43,7 @@ function breadcrumb(path) {
 
 async function navigate(path) {
   currentPath = path;
+  selectedPaths.clear();
   app.innerHTML = `<div class="loading"><span class="spinner"></span></div>`;
   const res = await fetch(`/api/files?path=${encodeURIComponent(path)}`);
   if (!res.ok) return (app.innerHTML = `<div class="empty">Error loading files</div>`);
@@ -57,15 +59,20 @@ async function navigate(path) {
   html += "<ul>";
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
+    const escapedPath = (f.is_dir ? joinPath(path, f.name) : joinPath(path, f.name)).replace(/'/g, "\\'");
     if (f.is_dir) {
       const next = joinPath(path, f.name);
-      html += `<li style="--i:${i}"><span class="icon">${ICON_FOLDER}</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
+      html += `<li style="--i:${i}" data-path="${next}">`;
+      html += `<input type="checkbox" class="select-cb" onchange="toggleSelect('${escapedPath}', this.checked)">`;
+      html += `<span class="icon">${ICON_FOLDER}</span><a href="#" onclick="navigate('${next}');return false">${f.name}</a>`;
       html += `<span class="action-btn" onclick="renameItem('${next}', '${f.name}', event)" title="Rename">${ICON_RENAME}</span>`;
       html += `<span class="action-btn delete" onclick="deleteItem('${next}', '${f.name}', true, event)" title="Delete">${ICON_DELETE}</span>`;
       html += `<span class="spacer"></span><span class="download-btn" onclick="downloadZip('${next}')" title="Download as zip">${ICON_DOWNLOAD}</span></li>`;
     } else {
       const filePath = joinPath(path, f.name);
-      html += `<li class="file" style="--i:${i}"><span class="icon">${ICON_FILE}</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
+      html += `<li class="file" style="--i:${i}" data-path="${filePath}">`;
+      html += `<input type="checkbox" class="select-cb" onchange="toggleSelect('${escapedPath}', this.checked)">`;
+      html += `<span class="icon">${ICON_FILE}</span><a href="#" onclick="viewFile('${filePath}');return false">${f.name}</a>`;
       html += `<span class="action-btn" onclick="renameItem('${filePath}', '${f.name}', event)" title="Rename">${ICON_RENAME}</span>`;
       html += `<span class="action-btn delete" onclick="deleteItem('${filePath}', '${f.name}', false, event)" title="Delete">${ICON_DELETE}</span>`;
       html += `<span class="spacer"></span></li>`;
@@ -225,6 +232,116 @@ async function deleteItem(itemPath, name, isDir, event) {
   } else {
     const error = await res.json();
     alert(error.detail || "Failed to delete");
+  }
+}
+
+function toggleSelect(path, checked) {
+  if (checked) {
+    selectedPaths.add(path);
+  } else {
+    selectedPaths.delete(path);
+  }
+  updateSelectionUI();
+}
+
+function updateSelectionUI() {
+  const ul = app.querySelector("ul");
+  if (ul) {
+    ul.classList.toggle("has-selection", selectedPaths.size > 0);
+  }
+
+  // Update selected class on list items
+  app.querySelectorAll("li[data-path]").forEach((li) => {
+    const isSelected = selectedPaths.has(li.dataset.path);
+    li.classList.toggle("selected", isSelected);
+  });
+
+  // Show/hide selection bar
+  const existing = app.querySelector(".selection-bar");
+  if (selectedPaths.size === 0) {
+    if (existing) existing.remove();
+    return;
+  }
+
+  const count = selectedPaths.size;
+  const barHTML =
+    `<div class="selection-bar">` +
+    `<span>${count} item${count > 1 ? "s" : ""} selected</span>` +
+    `<span class="selection-bar-actions">` +
+    `<button class="btn btn-sm btn-secondary" onclick="clearSelection()">Cancel</button>` +
+    `<button class="btn btn-sm btn-secondary" onclick="downloadSelected()">Download zip</button>` +
+    `<button class="btn btn-sm btn-danger" onclick="deleteSelected()">Delete</button>` +
+    `</span></div>`;
+
+  if (existing) {
+    existing.outerHTML = barHTML;
+  } else {
+    const contentActions = app.querySelector(".content-actions");
+    if (contentActions) {
+      contentActions.insertAdjacentHTML("afterend", barHTML);
+    }
+  }
+}
+
+function clearSelection() {
+  selectedPaths.clear();
+  app.querySelectorAll(".select-cb").forEach((cb) => (cb.checked = false));
+  app.querySelectorAll("li.selected").forEach((li) => li.classList.remove("selected"));
+  updateSelectionUI();
+}
+
+async function deleteSelected() {
+  const count = selectedPaths.size;
+  if (!count) return;
+
+  const ok = confirm(`Delete ${count} item${count > 1 ? "s" : ""}? This cannot be undone.`);
+  if (!ok) return;
+
+  const paths = Array.from(selectedPaths);
+  const res = await fetch("/api/batch-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paths }),
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    const failures = data.results.filter((r) => r.status === "error");
+    if (failures.length > 0) {
+      alert(
+        `Failed to delete ${failures.length} item(s):\n` +
+          failures.map((f) => `${f.path}: ${f.detail}`).join("\n")
+      );
+    }
+  } else {
+    alert("Failed to delete items");
+  }
+
+  selectedPaths.clear();
+  navigate(currentPath);
+}
+
+async function downloadSelected() {
+  const count = selectedPaths.size;
+  if (!count) return;
+
+  const paths = Array.from(selectedPaths);
+  const res = await fetch("/api/batch-download-zip", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paths }),
+  });
+
+  if (res.ok) {
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "selected.zip";
+    a.click();
+    URL.revokeObjectURL(url);
+  } else {
+    alert("Failed to download items");
   }
 }
 

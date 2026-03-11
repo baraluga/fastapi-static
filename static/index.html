@@ -461,6 +461,61 @@
         color: var(--primary);
       }
 
+      /* === Selection Checkboxes === */
+      .select-cb {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        cursor: pointer;
+        accent-color: var(--primary);
+        opacity: 0;
+        transition: opacity 0.15s;
+        flex-shrink: 0;
+      }
+
+      li:hover .select-cb,
+      .has-selection .select-cb {
+        opacity: 1;
+      }
+
+      li.selected {
+        background: var(--primary-light);
+      }
+
+      li.selected::before {
+        background: var(--primary);
+      }
+
+      /* === Selection Bar === */
+      .selection-bar {
+        padding: 8px 16px;
+        background: #fef2f2;
+        border-bottom: 1px solid #fecaca;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        font-weight: 500;
+        color: #991b1b;
+        animation: fadeSlideIn 0.2s ease;
+      }
+
+      .selection-bar-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .btn-danger {
+        background: #dc2626;
+        color: #fff;
+        border: none;
+      }
+
+      .btn-danger:hover {
+        background: #b91c1c;
+        box-shadow: 0 2px 10px rgba(220, 38, 38, 0.35);
+      }
+
       /* === Empty & Loading === */
       .empty {
         padding: 64px 16px;
@@ -607,8 +662,8 @@
           <li>📤 Upload files via button or drag-drop</li>
           <li>📁 Upload folders (preserves structure)</li>
           <li>✏️ Rename files and folders inline</li>
-          <li>🗑️ Delete with confirmation (recursive)</li>
-          <li>📥 Download files or folders as zip</li>
+          <li>🗑️ Delete single or bulk with confirmation</li>
+          <li>📥 Download single or bulk as zip</li>
           <li>➕ Create new folders</li>
           <li>🎨 Animated UI with loading states</li>
         </ul>
