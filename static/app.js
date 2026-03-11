@@ -235,6 +235,125 @@ async function deleteItem(itemPath, name, isDir, event) {
   }
 }
 
+// === UI Sound Effects ===
+let uiAudioCtx = null;
+let lastHoverSoundTime = 0;
+
+function getUIAudioCtx() {
+  if (!uiAudioCtx) {
+    uiAudioCtx = new (window.AudioContext || window["webkitAudioContext"])();
+  }
+  return uiAudioCtx;
+}
+
+function playHoverSound() {
+  const now = Date.now();
+  if (now - lastHoverSoundTime < 80) return; // debounce rapid movements
+  lastHoverSoundTime = now;
+
+  const ctx = getUIAudioCtx();
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(1100, ctx.currentTime);
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.07, ctx.currentTime + 0.005);
+  env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+  osc.connect(env);
+  env.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.06);
+}
+
+function playClickSound() {
+  const ctx = getUIAudioCtx();
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(800, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(380, ctx.currentTime + 0.08);
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.005);
+  env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+  osc.connect(env);
+  env.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.12);
+}
+
+const UI_INTERACTIVE = 'button, a, input[type="checkbox"], .action-btn, .download-btn, .search-clear';
+
+document.addEventListener("mouseover", (e) => {
+  if (e.target.closest(UI_INTERACTIVE)) playHoverSound();
+});
+
+document.addEventListener("mousedown", (e) => {
+  if (e.target.closest(UI_INTERACTIVE)) playClickSound();
+});
+
+// === Elevator Music ===
+let elevatorCtx = null;
+let elevatorGain = null;
+let elevatorLoopTimer = null;
+
+// Aerith's Theme — FF7 (durations in seconds)
+const ELEVATOR_MELODY = [
+  [220.00, 0.5], // A3
+  [293.66, 0.5], // D4
+  [329.63, 0.5], // E4
+  [369.99, 0.8], // F#4
+  [392.00, 0.2], // G4
+  [369.99, 0.5], // F#4
+  [329.63, 0.5], // E4
+  [293.66, 1.4], // D4  (slightly longer tail before loop)
+];
+
+function playElevatorNote(freq, start, dur) {
+  const osc = elevatorCtx.createOscillator();
+  const env = elevatorCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(freq, start);
+  env.gain.setValueAtTime(0, start);
+  env.gain.linearRampToValueAtTime(0.2, start + 0.05);
+  env.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  osc.connect(env);
+  env.connect(elevatorGain);
+  osc.start(start);
+  osc.stop(start + dur + 0.05);
+}
+
+function scheduleElevatorLoop() {
+  if (!elevatorCtx) return;
+  let t = elevatorCtx.currentTime + 0.05;
+  let totalDur = 0;
+  for (const [freq, dur] of ELEVATOR_MELODY) {
+    playElevatorNote(freq, t, dur);
+    t += dur;
+    totalDur += dur;
+  }
+  elevatorLoopTimer = setTimeout(scheduleElevatorLoop, (totalDur - 0.2) * 1000);
+}
+
+function startElevatorMusic() {
+  if (elevatorCtx) return;
+  elevatorCtx = new (window.AudioContext || window["webkitAudioContext"])();
+  elevatorGain = elevatorCtx.createGain();
+  elevatorGain.gain.setValueAtTime(0.6, elevatorCtx.currentTime);
+  elevatorGain.connect(elevatorCtx.destination);
+  scheduleElevatorLoop();
+}
+
+function stopElevatorMusic() {
+  if (!elevatorCtx) return;
+  clearTimeout(elevatorLoopTimer);
+  elevatorLoopTimer = null;
+  elevatorGain.gain.linearRampToValueAtTime(0, elevatorCtx.currentTime + 0.4);
+  const ctx = elevatorCtx;
+  elevatorCtx = null;
+  elevatorGain = null;
+  setTimeout(() => ctx.close(), 500);
+}
+
 function toggleSelect(path, checked) {
   if (checked) {
     selectedPaths.add(path);
@@ -260,6 +379,7 @@ function updateSelectionUI() {
   const existing = app.querySelector(".selection-bar");
   if (selectedPaths.size === 0) {
     if (existing) existing.remove();
+    stopElevatorMusic();
     return;
   }
 
@@ -280,6 +400,7 @@ function updateSelectionUI() {
     if (contentActions) {
       contentActions.insertAdjacentHTML("afterend", barHTML);
     }
+    startElevatorMusic();
   }
 }
 
@@ -287,6 +408,7 @@ function clearSelection() {
   selectedPaths.clear();
   app.querySelectorAll(".select-cb").forEach((cb) => (cb.checked = false));
   app.querySelectorAll("li.selected").forEach((li) => li.classList.remove("selected"));
+  stopElevatorMusic();
   updateSelectionUI();
 }
 
