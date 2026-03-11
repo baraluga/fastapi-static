@@ -4,7 +4,7 @@ import shutil
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,12 +19,18 @@ app = FastAPI()
 ROOT_DIR = Path(os.getenv("ROOT_DIR", "./sandbox")).resolve()
 
 
+def sanitize_name_soft(name: str) -> Optional[str]:
+    """Sanitize a name, returning None if invalid instead of raising."""
+    sanitized = name.replace("/", "").replace("\\", "").replace("..", "").strip()
+    if not sanitized or "\x00" in sanitized:
+        return None
+    return sanitized
+
+
 def sanitize_name(name: str) -> str:
     """Sanitize file/folder names to prevent path traversal."""
-    sanitized = (
-        name.replace("/", "").replace("\\", "").replace("..", "").strip()
-    )
-    if not sanitized or "\x00" in sanitized:
+    sanitized = sanitize_name_soft(name)
+    if sanitized is None:
         raise HTTPException(400, "Invalid name")
     return sanitized
 
@@ -32,19 +38,7 @@ def sanitize_name(name: str) -> str:
 def validate_path(
     path: str, must_be_dir: bool = False, must_be_file: bool = False
 ) -> Path:
-    """Resolve and validate path is within ROOT_DIR.
-
-    Args:
-        path: The path to validate (relative to ROOT_DIR)
-        must_be_dir: If True, path must be a directory
-        must_be_file: If True, path must be a file
-
-    Returns:
-        Resolved Path object
-
-    Raises:
-        HTTPException: If path is invalid or doesn't meet requirements
-    """
+    """Resolve and validate path is within ROOT_DIR."""
     target = (ROOT_DIR / path.lstrip("/")).resolve()
     if not target.is_relative_to(ROOT_DIR):
         raise HTTPException(400, "Invalid path")
@@ -57,11 +51,31 @@ def validate_path(
     return target
 
 
+def validate_batch_request(paths: List[str]) -> None:
+    """Validate common batch request constraints."""
+    if not paths:
+        raise HTTPException(400, "No paths provided")
+    if len(paths) > 100:
+        raise HTTPException(400, "Too many items (max 100)")
+
+
 def to_relative_path(path: Path) -> str:
     """Convert absolute path to API-relative path format."""
     if path == ROOT_DIR:
         return "/"
     return "/" + str(path.relative_to(ROOT_DIR))
+
+
+def _delete_target(path: str, target: Path) -> None:
+    """Delete a file or directory, preventing deletion of ROOT_DIR."""
+    if target == ROOT_DIR:
+        raise HTTPException(400, "Cannot delete root directory")
+    if target.is_file():
+        target.unlink()
+        log.info("DELETE FILE %s", path)
+    else:
+        shutil.rmtree(target)
+        log.info("DELETE DIR %s", path)
 
 
 @app.get("/api/files")
@@ -91,26 +105,14 @@ async def upload_file(
     target_dir = validate_path(path, must_be_dir=True)
 
     if relative_path:
-        # Split and sanitize each path component, filtering out invalid ones
-        path_parts = []
-        for part in relative_path.split("/"):
-            if part:  # Skip empty parts
-                # Manually sanitize to allow graceful handling of invalid components
-                sanitized = (
-                    part.replace("/", "")
-                    .replace("\\", "")
-                    .replace("..", "")
-                    .strip()
-                )
-                # Skip components that sanitize to empty or contain null bytes
-                if sanitized and "\x00" not in sanitized:
-                    path_parts.append(sanitized)
-
-        # Ensure we have at least one valid component
+        path_parts = [
+            sanitized
+            for part in relative_path.split("/")
+            if part and (sanitized := sanitize_name_soft(part))
+        ]
         if not path_parts:
             raise HTTPException(400, "Invalid relative path")
 
-        # Create nested directories (last part is filename)
         if len(path_parts) > 1:
             nested_dir = target_dir
             for dir_part in path_parts[:-1]:
@@ -119,19 +121,15 @@ async def upload_file(
             target_file = nested_dir / path_parts[-1]
         else:
             target_file = target_dir / path_parts[0]
-
         result_filename = relative_path
     else:
-        # Original behavior: use file.filename
         filename = sanitize_name(file.filename)
         target_file = target_dir / filename
         result_filename = filename
 
-    # Security: validate final path is within ROOT_DIR
     if not target_file.is_relative_to(ROOT_DIR):
         raise HTTPException(400, "Invalid path")
 
-    # Chunked write logic
     size = 0
     with open(target_file, "wb") as f:
         while chunk := await file.read(1024 * 1024):
@@ -154,8 +152,6 @@ def download_zip(path: str = Query("/")):
                     file_path = Path(root) / file
                     arcname = str(file_path.relative_to(target))
                     zf.write(file_path, arcname)
-
-        # Stream the complete, valid zip in 1MB chunks
         buffer.seek(0)
         while chunk := buffer.read(1024 * 1024):
             yield chunk
@@ -166,8 +162,7 @@ def download_zip(path: str = Query("/")):
         generate_zip(),
         media_type="application/zip",
         headers={
-            "Content-Disposition":
-                f'attachment; filename="{zip_name}.zip"'
+            "Content-Disposition": f'attachment; filename="{zip_name}.zip"'
         },
     )
 
@@ -199,15 +194,7 @@ def rename_item(path: str = Query(...), new_name: str = Query(...)):
 @app.post("/api/delete")
 def delete_item(path: str = Query(...)):
     target = validate_path(path)
-    # Prevent deleting the root directory itself
-    if target == ROOT_DIR:
-        raise HTTPException(400, "Cannot delete root directory")
-    if target.is_file():
-        target.unlink()
-        log.info("DELETE FILE %s", path)
-    else:
-        shutil.rmtree(target)
-        log.info("DELETE DIR %s", path)
+    _delete_target(path, target)
     return {"status": "success"}
 
 
@@ -217,36 +204,20 @@ class BatchPathsRequest(BaseModel):
 
 @app.post("/api/batch-delete")
 def batch_delete(request: BatchPathsRequest):
-    if not request.paths:
-        raise HTTPException(400, "No paths provided")
-    if len(request.paths) > 100:
-        raise HTTPException(400, "Too many items (max 100)")
+    validate_batch_request(request.paths)
 
     results = []
     for path in request.paths:
         try:
             target = validate_path(path)
-            if target == ROOT_DIR:
-                results.append(
-                    {"path": path, "status": "error",
-                     "detail": "Cannot delete root directory"}
-                )
-                continue
-            if target.is_file():
-                target.unlink()
-                log.info("DELETE FILE %s", path)
-            else:
-                shutil.rmtree(target)
-                log.info("DELETE DIR %s", path)
+            _delete_target(path, target)
             results.append({"path": path, "status": "success"})
         except HTTPException as e:
             results.append(
                 {"path": path, "status": "error", "detail": e.detail}
             )
         except Exception as e:
-            results.append(
-                {"path": path, "status": "error", "detail": str(e)}
-            )
+            results.append({"path": path, "status": "error", "detail": str(e)})
 
     succeeded = sum(1 for r in results if r["status"] == "success")
     failed = sum(1 for r in results if r["status"] == "error")
@@ -256,15 +227,9 @@ def batch_delete(request: BatchPathsRequest):
 
 @app.post("/api/batch-download-zip")
 def batch_download_zip(request: BatchPathsRequest):
-    if not request.paths:
-        raise HTTPException(400, "No paths provided")
-    if len(request.paths) > 100:
-        raise HTTPException(400, "Too many items (max 100)")
+    validate_batch_request(request.paths)
 
-    targets = []
-    for path in request.paths:
-        target = validate_path(path)
-        targets.append((path, target))
+    targets = [(path, validate_path(path)) for path in request.paths]
 
     def generate_zip():
         buffer = BytesIO()
@@ -281,7 +246,6 @@ def batch_download_zip(request: BatchPathsRequest):
                                 + str(file_path.relative_to(target))
                             )
                             zf.write(file_path, arcname)
-
         buffer.seek(0)
         while chunk := buffer.read(1024 * 1024):
             yield chunk
@@ -290,9 +254,7 @@ def batch_download_zip(request: BatchPathsRequest):
     return StreamingResponse(
         generate_zip(),
         media_type="application/zip",
-        headers={
-            "Content-Disposition": 'attachment; filename="selected.zip"'
-        },
+        headers={"Content-Disposition": 'attachment; filename="selected.zip"'},
     )
 
 
@@ -304,7 +266,6 @@ def search_files(query: str = Query("")):
     results = []
     for root, dirs, files in os.walk(ROOT_DIR):
         root_path = Path(root)
-        # Search in directories
         for dir_name in dirs:
             if query_lower in dir_name.lower():
                 full_path = root_path / dir_name
@@ -316,7 +277,6 @@ def search_files(query: str = Query("")):
                 })
                 if len(results) >= 50:
                     break
-        # Search in files
         for file_name in files:
             if query_lower in file_name.lower():
                 full_path = root_path / file_name
