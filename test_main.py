@@ -437,3 +437,129 @@ def test_upload_relative_path_to_subdir(client, tmp_path):
     )
     assert res.status_code == 200
     assert (tmp_path / "subdir" / "nested" / "file.txt").read_text() == "in nested"
+
+
+# --- batch-delete ---
+
+
+def test_batch_delete_multiple_files(client, tmp_path):
+    (tmp_path / "a.txt").write_text("a")
+    (tmp_path / "b.txt").write_text("b")
+    (tmp_path / "c.txt").write_text("c")
+    res = client.post(
+        "/api/batch-delete",
+        json={"paths": ["/a.txt", "/b.txt", "/c.txt"]},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert all(r["status"] == "success" for r in data["results"])
+    assert not (tmp_path / "a.txt").exists()
+    assert not (tmp_path / "b.txt").exists()
+    assert not (tmp_path / "c.txt").exists()
+
+
+def test_batch_delete_mixed(client, tmp_path):
+    (tmp_path / "file.txt").write_text("x")
+    (tmp_path / "folder").mkdir()
+    (tmp_path / "folder" / "inner.txt").write_text("y")
+    res = client.post(
+        "/api/batch-delete",
+        json={"paths": ["/file.txt", "/folder"]},
+    )
+    assert res.status_code == 200
+    assert all(r["status"] == "success" for r in res.json()["results"])
+    assert not (tmp_path / "file.txt").exists()
+    assert not (tmp_path / "folder").exists()
+
+
+def test_batch_delete_partial_failure(client, tmp_path):
+    (tmp_path / "exists.txt").write_text("here")
+    res = client.post(
+        "/api/batch-delete",
+        json={"paths": ["/exists.txt", "/nonexistent.txt"]},
+    )
+    assert res.status_code == 200
+    results = res.json()["results"]
+    assert results[0]["status"] == "success"
+    assert results[1]["status"] == "error"
+    assert not (tmp_path / "exists.txt").exists()
+
+
+def test_batch_delete_empty_list(client):
+    res = client.post("/api/batch-delete", json={"paths": []})
+    assert res.status_code == 400
+
+
+def test_batch_delete_root_blocked(client, tmp_path):
+    (tmp_path / "keep.txt").write_text("keep")
+    res = client.post(
+        "/api/batch-delete",
+        json={"paths": ["/", "/keep.txt"]},
+    )
+    assert res.status_code == 200
+    results = res.json()["results"]
+    assert results[0]["status"] == "error"
+    assert "root" in results[0]["detail"].lower()
+    assert results[1]["status"] == "success"
+
+
+def test_batch_delete_path_traversal(client, tmp_path):
+    res = client.post(
+        "/api/batch-delete",
+        json={"paths": ["/../../../etc/passwd"]},
+    )
+    assert res.status_code == 200
+    assert res.json()["results"][0]["status"] == "error"
+
+
+def test_batch_delete_too_many(client):
+    paths = [f"/file{i}.txt" for i in range(101)]
+    res = client.post("/api/batch-delete", json={"paths": paths})
+    assert res.status_code == 400
+
+
+# --- batch-download-zip ---
+
+
+def test_batch_download_zip_multiple_files(client, tmp_path):
+    (tmp_path / "a.txt").write_text("aaa")
+    (tmp_path / "b.txt").write_text("bbb")
+    res = client.post(
+        "/api/batch-download-zip",
+        json={"paths": ["/a.txt", "/b.txt"]},
+    )
+    assert res.status_code == 200
+    zf = zipfile.ZipFile(BytesIO(res.content))
+    names = zf.namelist()
+    assert "a.txt" in names
+    assert "b.txt" in names
+    assert zf.read("a.txt") == b"aaa"
+    assert zf.read("b.txt") == b"bbb"
+
+
+def test_batch_download_zip_mixed(client, tmp_path):
+    (tmp_path / "file.txt").write_text("content")
+    (tmp_path / "dir").mkdir()
+    (tmp_path / "dir" / "inner.txt").write_text("inner")
+    res = client.post(
+        "/api/batch-download-zip",
+        json={"paths": ["/file.txt", "/dir"]},
+    )
+    assert res.status_code == 200
+    zf = zipfile.ZipFile(BytesIO(res.content))
+    names = zf.namelist()
+    assert "file.txt" in names
+    assert "dir/inner.txt" in names
+
+
+def test_batch_download_zip_empty_list(client):
+    res = client.post("/api/batch-download-zip", json={"paths": []})
+    assert res.status_code == 400
+
+
+def test_batch_download_zip_path_traversal(client):
+    res = client.post(
+        "/api/batch-download-zip",
+        json={"paths": ["/../../../etc/passwd"]},
+    )
+    assert res.status_code == 400

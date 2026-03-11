@@ -4,9 +4,11 @@ import shutil
 import zipfile
 from io import BytesIO
 from pathlib import Path
+from typing import List
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
@@ -207,6 +209,91 @@ def delete_item(path: str = Query(...)):
         shutil.rmtree(target)
         log.info("DELETE DIR %s", path)
     return {"status": "success"}
+
+
+class BatchPathsRequest(BaseModel):
+    paths: List[str]
+
+
+@app.post("/api/batch-delete")
+def batch_delete(request: BatchPathsRequest):
+    if not request.paths:
+        raise HTTPException(400, "No paths provided")
+    if len(request.paths) > 100:
+        raise HTTPException(400, "Too many items (max 100)")
+
+    results = []
+    for path in request.paths:
+        try:
+            target = validate_path(path)
+            if target == ROOT_DIR:
+                results.append(
+                    {"path": path, "status": "error",
+                     "detail": "Cannot delete root directory"}
+                )
+                continue
+            if target.is_file():
+                target.unlink()
+                log.info("DELETE FILE %s", path)
+            else:
+                shutil.rmtree(target)
+                log.info("DELETE DIR %s", path)
+            results.append({"path": path, "status": "success"})
+        except HTTPException as e:
+            results.append(
+                {"path": path, "status": "error", "detail": e.detail}
+            )
+        except Exception as e:
+            results.append(
+                {"path": path, "status": "error", "detail": str(e)}
+            )
+
+    succeeded = sum(1 for r in results if r["status"] == "success")
+    failed = sum(1 for r in results if r["status"] == "error")
+    log.info("BATCH DELETE %d succeeded, %d failed", succeeded, failed)
+    return {"results": results}
+
+
+@app.post("/api/batch-download-zip")
+def batch_download_zip(request: BatchPathsRequest):
+    if not request.paths:
+        raise HTTPException(400, "No paths provided")
+    if len(request.paths) > 100:
+        raise HTTPException(400, "Too many items (max 100)")
+
+    targets = []
+    for path in request.paths:
+        target = validate_path(path)
+        targets.append((path, target))
+
+    def generate_zip():
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as zf:
+            for path, target in targets:
+                if target.is_file():
+                    zf.write(target, target.name)
+                elif target.is_dir():
+                    for root, dirs, files in os.walk(target):
+                        for file in files:
+                            file_path = Path(root) / file
+                            arcname = (
+                                target.name + "/"
+                                + str(file_path.relative_to(target))
+                            )
+                            zf.write(file_path, arcname)
+
+        buffer.seek(0)
+        while chunk := buffer.read(1024 * 1024):
+            yield chunk
+
+    log.info("BATCH ZIP %d items", len(targets))
+    return StreamingResponse(
+        generate_zip(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="selected.zip"'
+        },
+    )
 
 
 @app.get("/api/search")
